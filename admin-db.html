@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Database Viewer - Admin</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f0f0f0;
+            padding: 20px;
+            margin: 0;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+        .nav-tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #ddd;
+        }
+        .nav-tab {
+            padding: 10px 20px;
+            background: #f7f7f7;
+            border: none;
+            border-radius: 4px 4px 0 0;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.3s;
+        }
+        .nav-tab.active {
+            background: #007bff;
+            color: white;
+        }
+        .nav-tab:hover {
+            background: #e0e0e0;
+        }
+        .nav-tab.active:hover {
+            background: #0056b3;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+        th {
+            background: #007bff;
+            color: white;
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+        }
+        td {
+            padding: 10px;
+            border-bottom: 1px solid #ddd;
+        }
+        tr:hover {
+            background: #f7f7f7;
+        }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            border-radius: 8px;
+            color: white;
+        }
+        .stat-card.green {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+        }
+        .stat-card.orange {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+        .stat-card.blue {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        }
+        .stat-value {
+            font-size: 32px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .stat-label {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+        .refresh-btn {
+            padding: 10px 20px;
+            background: #28a745;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-bottom: 10px;
+        }
+        .refresh-btn:hover {
+            background: #218838;
+        }
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+        }
+        .empty {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+        }
+        .deleted {
+            text-decoration: line-through;
+            color: #dc3545;
+        }
+        .message-text {
+            max-width: 400px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .query-panel {
+            background: #f7f7f7;
+            padding: 16px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .query-input {
+            width: 100%;
+            padding: 10px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            min-height: 80px;
+            resize: vertical;
+        }
+        .run-query-btn {
+            padding: 10px 20px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-top: 8px;
+        }
+        .run-query-btn:hover {
+            background: #0056b3;
+        }
+        .query-examples {
+            margin-top: 10px;
+            font-size: 12px;
+            color: #666;
+        }
+        .example-query {
+            background: #e9ecef;
+            padding: 4px 8px;
+            border-radius: 3px;
+            cursor: pointer;
+            display: inline-block;
+            margin: 4px 4px 4px 0;
+        }
+        .example-query:hover {
+            background: #dee2e6;
+        }
+        .filter-box {
+            margin: 10px 0;
+            padding: 10px;
+            background: #f7f7f7;
+            border-radius: 4px;
+        }
+        .filter-box input {
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            margin-right: 8px;
+        }
+        .export-btn {
+            padding: 8px 16px;
+            background: #28a745;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-left: 10px;
+        }
+        .export-btn:hover {
+            background: #218838;
+        }
+        .query-result {
+            max-height: 500px;
+            overflow: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🗄️ Database Viewer</h1>
+        <p style="color:#666; margin-bottom:20px;">Admin panel to view all system data</p>
+
+        <div class="stats" id="stats"></div>
+
+        <div class="nav-tabs">
+            <button class="nav-tab active" onclick="switchTab('query')">SQL Query</button>
+            <button class="nav-tab" onclick="switchTab('messages')">Messages</button>
+            <button class="nav-tab" onclick="switchTab('users')">Users</button>
+            <button class="nav-tab" onclick="switchTab('interactions')">Interactions</button>
+            <button class="nav-tab" onclick="switchTab('flagged')">Flagged Messages</button>
+        </div>
+
+        <button class="refresh-btn" onclick="loadAllData()">🔄 Refresh</button>
+
+        <div id="query-tab" class="tab-content active">
+            <h2>Custom SQL Query</h2>
+            <div class="query-panel">
+                <textarea id="sql-query" class="query-input" placeholder="Enter your SQL query here...">SELECT * FROM messages ORDER BY created_at DESC LIMIT 50</textarea>
+                <button class="run-query-btn" onclick="runCustomQuery()">▶ Run Query</button>
+                <button class="export-btn" onclick="exportResults('csv')">📥 Export CSV</button>
+                <button class="export-btn" onclick="exportResults('json')">📥 Export JSON</button>
+                <div class="query-examples">
+                    <strong>Examples:</strong><br>
+                    <span class="example-query" onclick="setQuery('SELECT * FROM messages WHERE state = \\'Kano\\' ORDER BY created_at DESC')">Messages by State</span>
+                    <span class="example-query" onclick="setQuery('SELECT username, COUNT(*) as msg_count FROM messages GROUP BY username ORDER BY msg_count DESC')">Top Users</span>
+                    <span class="example-query" onclick="setQuery('SELECT state, lga, COUNT(*) as count FROM messages GROUP BY state, lga ORDER BY count DESC')">Messages by Location</span>
+                    <span class="example-query" onclick="setQuery('SELECT DATE(created_at) as date, COUNT(*) as count FROM messages GROUP BY date ORDER BY date DESC')">Messages by Date</span>
+                    <span class="example-query" onclick="setQuery('SELECT * FROM messages WHERE message LIKE \\'%want%\\' ORDER BY created_at DESC')">Search Messages</span>
+                    <span class="example-query" onclick="setQuery('SELECT m.*, u.state, u.lga FROM messages m JOIN users u ON m.username = u.username WHERE m.parent_id IS NULL LIMIT 50')">Main Messages with User Info</span>
+                </div>
+            </div>
+            <div id="query-result" class="query-result"></div>
+        </div>
+
+        <div id="messages-tab" class="tab-content">
+            <h2>Messages</h2>
+            <div class="filter-box">
+                <input type="text" id="msg-filter" placeholder="Filter by username, state, or message text..." oninput="filterMessages()">
+                <button class="export-btn" onclick="exportTable('messages')">📥 Export</button>
+            </div>
+            <div id="messages-content" class="loading">Loading...</div>
+        </div>
+
+        <div id="users-tab" class="tab-content">
+            <h2>Users</h2>
+            <div class="filter-box">
+                <input type="text" id="user-filter" placeholder="Filter by username, state, or LGA..." oninput="filterUsers()">
+                <button class="export-btn" onclick="exportTable('users')">📥 Export</button>
+            </div>
+            <div id="users-content" class="loading">Loading...</div>
+        </div>
+
+        <div id="interactions-tab" class="tab-content">
+            <h2>User Interactions</h2>
+            <div class="filter-box">
+                <input type="text" id="interaction-filter" placeholder="Filter by username or type..." oninput="filterInteractions()">
+                <button class="export-btn" onclick="exportTable('interactions')">📥 Export</button>
+            </div>
+            <div id="interactions-content" class="loading">Loading...</div>
+        </div>
+
+        <div id="flagged-tab" class="tab-content">
+            <h2>Flagged Messages</h2>
+            <div class="filter-box">
+                <input type="text" id="flagged-filter" placeholder="Filter by username or status..." oninput="filterFlagged()">
+                <button class="export-btn" onclick="exportTable('flagged')">📥 Export</button>
+            </div>
+            <div id="flagged-content" class="loading">Loading...</div>
+        </div>
+    </div>
+
+    <script>
+        let token = localStorage.getItem('token');
+        if (!token) {
+            // Show simple login prompt
+            const username = prompt('Admin Username:');
+            const password = prompt('Admin Password:');
+            if (username && password) {
+                loginAdmin(username, password);
+            } else {
+                alert('Login required to view database');
+                window.location.href = '/';
+            }
+        }
+
+        async function loginAdmin(username, password) {
+            try {
+                const res = await fetch('/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        username, 
+                        password, 
+                        state: 'Admin', 
+                        lga: 'Admin' 
+                    })
+                });
+                if (!res.ok) {
+                    alert('Login failed. Invalid credentials.');
+                    window.location.href = '/';
+                    return;
+                }
+                const data = await res.json();
+                localStorage.setItem('token', data.token);
+                localStorage.setItem('user', JSON.stringify(data.user));
+                token = data.token;
+                loadAllData();
+            } catch (err) {
+                console.error('Login failed:', err);
+                alert('Login failed. Please try again.');
+                window.location.href = '/';
+            }
+        }
+
+        function switchTab(tabName) {
+            document.querySelectorAll('.nav-tab').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+            
+            event.target.classList.add('active');
+            document.getElementById(`${tabName}-tab`).classList.add('active');
+        }
+
+        async function loadAllData() {
+            loadStats();
+            loadMessages();
+            loadUsers();
+            loadInteractions();
+            loadFlagged();
+        }
+
+        let cachedData = {
+            messages: [],
+            users: [],
+            interactions: [],
+            flagged: []
+        };
+
+        function setQuery(query) {
+            document.getElementById('sql-query').value = query;
+        }
+
+        async function runCustomQuery() {
+            const query = document.getElementById('sql-query').value.trim();
+            if (!query) {
+                alert('Please enter a SQL query');
+                return;
+            }
+
+            try {
+                const res = await fetch('/admin/query', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ query })
+                });
+
+                if (!res.ok) {
+                    const error = await res.json();
+                    alert('Query failed: ' + (error.message || 'Unknown error'));
+                    return;
+                }
+
+                const data = await res.json();
+                displayQueryResult(data.results);
+            } catch (err) {
+                console.error('Query failed:', err);
+                alert('Query failed: ' + err.message);
+            }
+        }
+
+        function displayQueryResult(results) {
+            const container = document.getElementById('query-result');
+            
+            if (!results || results.length === 0) {
+                container.innerHTML = '<div class="empty">Query returned no results</div>';
+                return;
+            }
+
+            const columns = Object.keys(results[0]);
+            container.innerHTML = `
+                <p style="color:#28a745; margin:10px 0;">✓ Query returned ${results.length} rows</p>
+                <table>
+                    <thead>
+                        <tr>${columns.map(col => `<th>${col}</th>`).join('')}</tr>
+                    </thead>
+                    <tbody>
+                        ${results.map(row => `
+                            <tr>${columns.map(col => `<td>${row[col] !== null ? row[col] : '-'}</td>`).join('')}</tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+            
+            // Store for export
+            cachedData.queryResults = results;
+        }
+
+        function exportResults(format) {
+            const data = cachedData.queryResults;
+            if (!data || data.length === 0) {
+                alert('No query results to export. Run a query first.');
+                return;
+            }
+
+            if (format === 'csv') {
+                exportToCSV(data, 'query_results');
+            } else if (format === 'json') {
+                exportToJSON(data, 'query_results');
+            }
+        }
+
+        function exportTable(tableName) {
+            const data = cachedData[tableName];
+            if (!data || data.length === 0) {
+                alert('No data to export');
+                return;
+            }
+            exportToCSV(data, tableName);
+        }
+
+        function exportToCSV(data, filename) {
+            const columns = Object.keys(data[0]);
+            const csv = [
+                columns.join(','),
+                ...data.map(row => columns.map(col => {
+                    const val = row[col];
+                    return typeof val === 'string' ? `"${val.replace(/"/g, '""')}"` : val;
+                }).join(','))
+            ].join('\n');
+
+            downloadFile(csv, `${filename}_${new Date().toISOString().slice(0,10)}.csv`, 'text/csv');
+        }
+
+        function exportToJSON(data, filename) {
+            const json = JSON.stringify(data, null, 2);
+            downloadFile(json, `${filename}_${new Date().toISOString().slice(0,10)}.json`, 'application/json');
+        }
+
+        function downloadFile(content, filename, type) {
+            const blob = new Blob([content], { type });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function filterMessages() {
+            const filter = document.getElementById('msg-filter').value.toLowerCase();
+            const rows = document.querySelectorAll('#messages-content tbody tr');
+            rows.forEach(row => {
+                const text = row.textContent.toLowerCase();
+                row.style.display = text.includes(filter) ? '' : 'none';
+            });
+        }
+
+        function filterUsers() {
+            const filter = document.getElementById('user-filter').value.toLowerCase();
+            const rows = document.querySelectorAll('#users-content tbody tr');
+            rows.forEach(row => {
+                const text = row.textContent.toLowerCase();
+                row.style.display = text.includes(filter) ? '' : 'none';
+            });
+        }
+
+        function filterInteractions() {
+            const filter = document.getElementById('interaction-filter').value.toLowerCase();
+            const rows = document.querySelectorAll('#interactions-content tbody tr');
+            rows.forEach(row => {
+                const text = row.textContent.toLowerCase();
+                row.style.display = text.includes(filter) ? '' : 'none';
+            });
+        }
+
+        function filterFlagged() {
+            const filter = document.getElementById('flagged-filter').value.toLowerCase();
+            const rows = document.querySelectorAll('#flagged-content tbody tr');
+            rows.forEach(row => {
+                const text = row.textContent.toLowerCase();
+                row.style.display = text.includes(filter) ? '' : 'none';
+            });
+        }
+
+        async function loadStats() {
+            if (!token) return;
+            try {
+                const [messages, users, interactions, flagged] = await Promise.all([
+                    fetch('/admin/db/messages', { headers: { 'Authorization': `Bearer ${token}` } }).then(r => r.json()),
+                    fetch('/admin/db/users', { headers: { 'Authorization': `Bearer ${token}` } }).then(r => r.json()),
+                    fetch('/admin/db/interactions', { headers: { 'Authorization': `Bearer ${token}` } }).then(r => r.json()),
+                    fetch('/admin/flagged', { headers: { 'Authorization': `Bearer ${token}` } }).then(r => r.json())
+                ]);
+
+                document.getElementById('stats').innerHTML = `
+                    <div class="stat-card blue">
+                        <div class="stat-value">${messages.data?.length || 0}</div>
+                        <div class="stat-label">Total Messages</div>
+                    </div>
+                    <div class="stat-card green">
+                        <div class="stat-value">${users.data?.length || 0}</div>
+                        <div class="stat-label">Total Users</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">${interactions.data?.length || 0}</div>
+                        <div class="stat-label">Interactions</div>
+                    </div>
+                    <div class="stat-card orange">
+                        <div class="stat-value">${flagged.flagged?.length || 0}</div>
+                        <div class="stat-label">Flagged</div>
+                    </div>
+                `;
+            } catch (err) {
+                console.error('Failed to load stats:', err);
+            }
+        }
+
+        async function loadMessages() {
+            try {
+                const res = await fetch('/admin/db/messages', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (!res.ok) throw new Error('Failed to fetch');
+                const data = await res.json();
+                
+                cachedData.messages = data.data;
+                const content = document.getElementById('messages-content');
+                if (!data.data || data.data.length === 0) {
+                    content.innerHTML = '<div class="empty">No messages in database</div>';
+                    return;
+                }
+
+                content.innerHTML = `
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Username</th>
+                                <th>State/LGA</th>
+                                <th>Message</th>
+                                <th>Parent ID</th>
+                                <th>Attachment</th>
+                                <th>Created</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${data.data.map(row => `
+                                <tr class="${row.deleted_at ? 'deleted' : ''}">
+                                    <td>${row.id}</td>
+                                    <td>${row.username}</td>
+                                    <td>${row.state || '-'} / ${row.lga || '-'}</td>
+                                    <td class="message-text" title="${row.message}">${row.message}</td>
+                                    <td>${row.parent_id || '-'}</td>
+                                    <td>${row.attachment_url ? '📎' : '-'}</td>
+                                    <td>${new Date(row.created_at).toLocaleString()}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
+            } catch (err) {
+                console.error('Failed to load messages:', err);
+                document.getElementById('messages-content').innerHTML = '<div class="empty">Failed to load messages</div>';
+            }
+        }
+
+        async function loadUsers() {
+            try {
+                const res = await fetch('/admin/db/users', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (!res.ok) throw new Error('Failed to fetch');
+                const data = await res.json();
+                
+                cachedData.users = data.data;
+                const content = document.getElementById('users-content');
+                if (!data.data || data.data.length === 0) {
+                    content.innerHTML = '<div class="empty">No users in database</div>';
+                    return;
+                }
+
+                content.innerHTML = `
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Username</th>
+                                <th>State</th>
+                                <th>LGA</th>
+                                <th>Created</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${data.data.map(row => `
+                                <tr>
+                                    <td>${row.username}</td>
+                                    <td>${row.state || '-'}</td>
+                                    <td>${row.lga || '-'}</td>
+                                    <td>${new Date(row.created_at).toLocaleString()}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
+            } catch (err) {
+                console.error('Failed to load users:', err);
+                document.getElementById('users-content').innerHTML = '<div class="empty">Failed to load users</div>';
+            }
+        }
+
+        async function loadInteractions() {
+            try {
+                const res = await fetch('/admin/db/interactions', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (!res.ok) throw new Error('Failed to fetch');
+                const data = await res.json();
+                
+                cachedData.interactions = data.data;
+                const content = document.getElementById('interactions-content');
+                if (!data.data || data.data.length === 0) {
+                    content.innerHTML = '<div class="empty">No interactions in database</div>';
+                    return;
+                }
+
+                content.innerHTML = `
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Username</th>
+                                <th>Message ID</th>
+                                <th>Type</th>
+                                <th>Created</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${data.data.map(row => `
+                                <tr>
+                                    <td>${row.id}</td>
+                                    <td>${row.username}</td>
+                                    <td>${row.message_id}</td>
+                                    <td>${row.type}</td>
+                                    <td>${new Date(row.created_at).toLocaleString()}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
+            } catch (err) {
+                console.error('Failed to load interactions:', err);
+                document.getElementById('interactions-content').innerHTML = '<div class="empty">Failed to load interactions</div>';
+            }
+        }
+
+        async function loadFlagged() {
+            try {
+                const res = await fetch('/admin/flagged', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (!res.ok) throw new Error('Failed to fetch');
+                const data = await res.json();
+                
+                cachedData.flagged = data.flagged;
+                const content = document.getElementById('flagged-content');
+                if (!data.flagged || data.flagged.length === 0) {
+                    content.innerHTML = '<div class="empty">No flagged messages</div>';
+                    return;
+                }
+
+                content.innerHTML = `
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Username</th>
+                                <th>State/LGA</th>
+                                <th>Message</th>
+                                <th>Reason</th>
+                                <th>Status</th>
+                                <th>Created</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${data.flagged.map(row => `
+                                <tr>
+                                    <td>${row.id}</td>
+                                    <td>${row.username}</td>
+                                    <td>${row.state || '-'} / ${row.lga || '-'}</td>
+                                    <td class="message-text" title="${row.message}">${row.message}</td>
+                                    <td>${row.rejection_reason}</td>
+                                    <td>${row.status}</td>
+                                    <td>${new Date(row.created_at).toLocaleString()}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
+            } catch (err) {
+                console.error('Failed to load flagged:', err);
+                document.getElementById('flagged-content').innerHTML = '<div class="empty">Failed to load flagged messages</div>';
+            }
+        }
+
+        if (token) {
+            loadAllData();
+        }
+    </script>
+</body>
+</html>

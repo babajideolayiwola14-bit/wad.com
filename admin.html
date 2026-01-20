@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Review Queue</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f0f0f0;
+            padding: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        h1 {
+            color: #333;
+        }
+        .flagged-item {
+            background: white;
+            padding: 16px;
+            margin-bottom: 12px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .flagged-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        .flagged-user {
+            font-weight: bold;
+            color: #007bff;
+        }
+        .flagged-location {
+            color: #666;
+            font-size: 14px;
+        }
+        .flagged-message {
+            font-size: 16px;
+            padding: 12px;
+            background: #f7f7f7;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .flagged-reason {
+            color: #dc3545;
+            font-size: 14px;
+            margin-bottom: 8px;
+        }
+        .flagged-actions {
+            display: flex;
+            gap: 8px;
+        }
+        .approve-btn {
+            padding: 8px 16px;
+            background: #28a745;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .reject-btn {
+            padding: 8px 16px;
+            background: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .approve-btn:hover {
+            background: #218838;
+        }
+        .reject-btn:hover {
+            background: #c82333;
+        }
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+        }
+    </style>
+</head>
+<body>
+    <h1>🚩 Review Queue</h1>
+    <p style="color:#666;">Review flagged messages and user reports</p>
+    <div id="flagged-list"></div>
+
+    <script>
+        let token = localStorage.getItem('token');
+        if (!token) {
+            // Show simple login prompt
+            const username = prompt('Admin Username:');
+            const password = prompt('Admin Password:');
+            if (username && password) {
+                loginAdmin(username, password);
+            } else {
+                alert('Login required for admin panel');
+                window.location.href = '/';
+            }
+        }
+
+        async function loginAdmin(username, password) {
+            try {
+                const res = await fetch('/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        username, 
+                        password, 
+                        state: 'Admin', 
+                        lga: 'Admin' 
+                    })
+                });
+                if (!res.ok) {
+                    alert('Login failed. Invalid credentials.');
+                    window.location.href = '/';
+                    return;
+                }
+                const data = await res.json();
+                localStorage.setItem('token', data.token);
+                localStorage.setItem('user', JSON.stringify(data.user));
+                token = data.token;
+                loadFlagged();
+            } catch (err) {
+                console.error('Login failed:', err);
+                alert('Login failed. Please try again.');
+                window.location.href = '/';
+            }
+        }
+
+        async function loadFlagged() {
+            if (!token) return;
+            try {
+                const res = await fetch('/admin/flagged', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (!res.ok) {
+                    alert('Failed to load flagged messages. Are you an admin?');
+                    return;
+                }
+                const data = await res.json();
+                renderFlagged(data.flagged);
+            } catch (err) {
+                console.error('Failed to load:', err);
+                alert('Failed to load flagged messages');
+            }
+        }
+
+        function renderFlagged(items) {
+            const list = document.getElementById('flagged-list');
+            if (!items || items.length === 0) {
+                list.innerHTML = '<div class="empty-state">No flagged messages to review</div>';
+                return;
+            }
+            list.innerHTML = items.map(item => `
+                <div class="flagged-item" data-id="${item.id}">
+                    <div class="flagged-header">
+                        <span class="flagged-user">${item.username}</span>
+                        <span class="flagged-location">${item.state} / ${item.lga}</span>
+                    </div>
+                    <div class="flagged-reason">${item.rejection_reason}</div>
+                    <div class="flagged-message">${item.message}</div>
+                    <div class="flagged-actions">
+                        <button class="approve-btn" onclick="approve(${item.id})">✓ Approve & Post</button>
+                        <button class="reject-btn" onclick="reject(${item.id})">✗ Reject</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        async function approve(id) {
+            try {
+                const res = await fetch(`/admin/approve/${id}`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (res.ok) {
+                    document.querySelector(`[data-id="${id}"]`).remove();
+                    alert('Message approved and posted');
+                } else {
+                    alert('Failed to approve message');
+                }
+            } catch (err) {
+                console.error('Approve failed:', err);
+                alert('Failed to approve message');
+            }
+        }
+
+        async function reject(id) {
+            try {
+                const res = await fetch(`/admin/reject/${id}`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (res.ok) {
+                    document.querySelector(`[data-id="${id}"]`).remove();
+                    alert('Message rejected');
+                } else {
+                    alert('Failed to reject message');
+                }
+            } catch (err) {
+                console.error('Reject failed:', err);
+                alert('Failed to reject message');
+            }
+        }
+
+        if (token) {
+            loadFlagged();
+        }
+    </script>
+</body>
+</html>
