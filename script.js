@@ -66,6 +66,65 @@ function populateLGAs() {
 document.addEventListener('DOMContentLoaded', populateStates);
 document.getElementById('state').addEventListener('change', populateLGAs);
 
+function startChat(userState, userLga) {
+    const loginContainer = document.getElementById('login-container');
+    const chatContainer = document.getElementById('chat-container');
+    if (loginContainer) loginContainer.style.display = 'none';
+    if (chatContainer) chatContainer.style.display = 'block';
+
+    const headerState = userState || localStorage.getItem('state');
+    const headerLga = userLga || localStorage.getItem('lga');
+    const chatHeader = document.getElementById('chat-header');
+    if (chatHeader && headerState && headerLga) {
+        chatHeader.textContent = `${headerState}, ${headerLga}`;
+    }
+
+    // Avoid double-loading chat scripts
+    if (window.chatLoaded || window.chatScriptsLoading) return;
+
+    window.chatScriptsLoading = true;
+    const socketScript = document.createElement('script');
+    socketScript.src = '/socket.io/socket.io.js';
+    socketScript.onload = () => {
+        const chatScript = document.createElement('script');
+        chatScript.src = 'chat.js';
+        chatScript.onload = () => {
+            window.chatScriptsLoading = false;
+        };
+        chatScript.onerror = () => {
+            window.chatScriptsLoading = false;
+        };
+        document.head.appendChild(chatScript);
+    };
+    socketScript.onerror = () => {
+        window.chatScriptsLoading = false;
+    };
+    document.head.appendChild(socketScript);
+}
+
+async function resumeSession() {
+    const token = localStorage.getItem('token');
+    if (!token) return;
+    try {
+        const res = await fetch('/profile', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!res.ok) throw new Error('unauthorized');
+        const data = await res.json();
+        const profile = data.profile || {};
+        const mergedUser = { ...(JSON.parse(localStorage.getItem('user') || '{}')), ...profile };
+        localStorage.setItem('user', JSON.stringify(mergedUser));
+        if (profile.state) localStorage.setItem('state', profile.state);
+        if (profile.lga) localStorage.setItem('lga', profile.lga);
+        startChat(profile.state, profile.lga);
+    } catch (err) {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        localStorage.removeItem('state');
+        localStorage.removeItem('lga');
+    }
+}
+
 document.getElementById('login-form').addEventListener('submit', async function(event) {
     event.preventDefault();
     const username = document.getElementById('username').value;
@@ -98,32 +157,7 @@ document.getElementById('login-form').addEventListener('submit', async function(
             localStorage.setItem('lga', lga);
             errorMessage.textContent = 'Login successful! Loading chat...';
             errorMessage.style.color = 'green';
-            // Load chat scripts and show chat
-            const socketScript = document.createElement('script');
-            socketScript.src = '/socket.io/socket.io.js';
-            document.head.appendChild(socketScript);
-            socketScript.onload = () => {
-                const chatScript = document.createElement('script');
-                chatScript.src = 'chat.js';
-                document.head.appendChild(chatScript);
-                chatScript.onload = () => {
-                    // Hide login, show chat
-                    const loginContainer = document.getElementById('login-container');
-                    const chatContainer = document.getElementById('chat-container');
-                    if (loginContainer) loginContainer.style.display = 'none';
-                    if (chatContainer) chatContainer.style.display = 'block';
-                    // Focus the input
-                    const messageInput = document.getElementById('message');
-                    if (messageInput) messageInput.focus();
-                    // Set header
-                    const chatHeader = document.getElementById('chat-header');
-                    const userState = localStorage.getItem('state');
-                    const userLga = localStorage.getItem('lga');
-                    if (chatHeader && userState && userLga) {
-                        chatHeader.textContent = `${userState}, ${userLga}`;
-                    }
-                };
-            };
+            startChat(state, lga);
         } else {
             errorMessage.textContent = data.message;
             errorMessage.style.color = 'red';
@@ -133,3 +167,6 @@ document.getElementById('login-form').addEventListener('submit', async function(
         errorMessage.style.color = 'red';
     }
 });
+
+// Attempt to restore session on page load (persists login after refresh)
+resumeSession();
