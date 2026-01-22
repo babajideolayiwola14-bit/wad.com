@@ -105,6 +105,13 @@ function startChat(userState, userLga) {
 async function resumeSession() {
     const token = localStorage.getItem('token');
     if (!token) return;
+    
+    // Immediately hide login and show chat to prevent flash
+    const loginContainer = document.getElementById('login-container');
+    const chatContainer = document.getElementById('chat-container');
+    if (loginContainer) loginContainer.style.display = 'none';
+    if (chatContainer) chatContainer.style.display = 'block';
+    
     try {
         const res = await fetch('/profile', {
             headers: { 'Authorization': `Bearer ${token}` }
@@ -118,10 +125,13 @@ async function resumeSession() {
         if (profile.lga) localStorage.setItem('lga', profile.lga);
         startChat(profile.state, profile.lga);
     } catch (err) {
+        // Token invalid, show login again
         localStorage.removeItem('token');
         localStorage.removeItem('user');
         localStorage.removeItem('state');
         localStorage.removeItem('lga');
+        if (loginContainer) loginContainer.style.display = 'block';
+        if (chatContainer) chatContainer.style.display = 'none';
     }
 }
 
