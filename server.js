@@ -361,6 +361,8 @@ app.post('/login', authLimiter, async (req, res) => {
 
   // Regular user registration/login
   let user = users.find(u => u.username === username);
+  let finalState = state;
+  let finalLga = lga;
   
   if (!user) {
     // Auto-register with password strength requirement
@@ -385,21 +387,39 @@ app.post('/login', authLimiter, async (req, res) => {
       console.warn(`Failed login attempt for user: ${username}`);
       return res.status(401).json({ message: 'Invalid username or password' });
     }
+    
+    // If no state/lga provided in login form, fetch from database (last known location)
+    if (!finalState || !finalLga) {
+      try {
+        const dbUser = await dbAll(
+          'SELECT state, lga FROM users WHERE username = ? LIMIT 1',
+          [username]
+        );
+        if (dbUser && dbUser.length > 0) {
+          // Use database location as fallback
+          finalState = dbUser[0].state || finalState;
+          finalLga = dbUser[0].lga || finalLga;
+          console.log('User', username, 'logging in with stored location:', finalState, finalLga);
+        }
+      } catch (err) {
+        console.error('Failed to fetch user location from database:', err);
+      }
+    }
   }
 
   const token = jwt.sign(
-    { id: user.id, username: user.username, role: user.role || 'user', state, lga },
+    { id: user.id, username: user.username, role: user.role || 'user', state: finalState, lga: finalLga },
     SECRET_KEY,
     { expiresIn: process.env.JWT_EXPIRY || 86400 }
   );
 
-  // Upsert user profile in database
+  // Upsert user profile in database with current location
   const upsertUser = async () => {
     try {
       await dbRun(
         `INSERT OR REPLACE INTO users (username, password_hash, state, lga, created_at)
          VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)`,
-        [user.username, user.password, state || null, lga || null]
+        [user.username, user.password, finalState || null, finalLga || null]
       );
     } catch (err) {
       console.error('Failed to upsert user profile:', err);
@@ -410,7 +430,7 @@ app.post('/login', authLimiter, async (req, res) => {
   res.status(200).json({
     auth: true,
     token: token,
-    user: { id: user.id, username: user.username, role: user.role || 'user', state, lga }
+    user: { id: user.id, username: user.username, role: user.role || 'user', state: finalState, lga: finalLga }
   });
 });
 
