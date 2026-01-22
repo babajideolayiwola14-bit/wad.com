@@ -17,6 +17,12 @@
         }
     });
 
+    // Wait for socket connection before fetching feed
+    socket.on('connect', () => {
+        console.log('Socket connected, fetching feed...');
+        fetchFeed();
+    });
+
     const messagesDiv = document.getElementById('chat-messages');
     const messageForm = document.getElementById('message-form');
     const messageInput = document.getElementById('message');
@@ -353,7 +359,7 @@
         messagesDiv.scrollTop = messagesDiv.scrollHeight;
     }
 
-    fetchFeed();
+    // fetchFeed() is now called when socket connects (see socket.on('connect') above)
 
     // Update header if reply page
     if (isReplyPage) {
