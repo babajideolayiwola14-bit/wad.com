@@ -130,21 +130,34 @@
                     <div class="profile-interaction-meta">${item.type} • ${new Date(item.created_at).toLocaleString()}</div>
                     <div class="profile-interaction-text">${item.message}</div>
                 `;
-                div.addEventListener('click', () => {
-                    // Filter to show only this message and its replies
-                    const filtered = allFeedMessages.filter(m => m.id === item.message_id || m.parent_id === item.message_id);
-                    // Re-render with filtered messages immediately
-                    renderFeed(filtered);
-                    // Show the View All button
-                    const btn = document.getElementById('view-all-btn');
-                    if (btn) btn.style.display = 'block';
-                });
                 profileInteractions.appendChild(div);
             });
         }
     }
 
     fetchProfile();
+
+    // Event delegation for profile interactions - single listener
+    if (profileInteractions) {
+        profileInteractions.addEventListener('click', (event) => {
+            const item = event.target.closest('.profile-interaction-item');
+            if (!item) return;
+            
+            const messageId = Number(item.dataset.messageId);
+            if (!messageId) return;
+            
+            // Scroll to the message in the feed
+            const messageElement = document.querySelector(`[data-id="${messageId}"]`);
+            if (messageElement) {
+                messageElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                // Highlight the message briefly
+                messageElement.style.backgroundColor = '#fff3cd';
+                setTimeout(() => {
+                    messageElement.style.backgroundColor = '';
+                }, 2000);
+            }
+        });
+    }
 
     async function fetchFeed() {
         if (!token) return;
