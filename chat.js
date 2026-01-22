@@ -491,8 +491,7 @@
                     <div class="replies" style="display:none"></div>
                 `;
                 repliesDiv.appendChild(replyItem);
-                // Show replies div if hidden
-                repliesDiv.style.display = 'block';
+                // Keep replies collapsed - don't auto-show
                 // Update count
                 const replyCount = parentElement.querySelector(':scope > .message-text > .reply-count');
                 const currentCount = repliesDiv.children.length;
