@@ -364,9 +364,13 @@ app.post('/login', authLimiter, async (req, res) => {
     return res.status(400).json({ message: 'State and LGA are required to login' });
   }
 
+  // Normalize location input to reduce casing/spacing mismatches
+  const normalizedState = String(state).trim();
+  const normalizedLga = String(lga).trim();
+
   let user = users.find(u => u.username === username);
-  let finalState = state;
-  let finalLga = lga;
+  let finalState = normalizedState;
+  let finalLga = normalizedLga;
   
   if (!user) {
     // Auto-register with password strength requirement
@@ -490,8 +494,8 @@ app.get('/profile', verifyHttpToken, async (req, res) => {
 // Get location-based feed
 app.get('/feed', verifyHttpToken, async (req, res) => {
   try {
-    const state = req.user.state;
-    const lga = req.user.lga;
+    const state = (req.user.state || '').trim();
+    const lga = (req.user.lga || '').trim();
     
     console.log('Feed request for user:', req.user.username, 'State:', state, 'LGA:', lga);
     
@@ -517,8 +521,8 @@ app.get('/feed', verifyHttpToken, async (req, res) => {
 // Search messages in user's location
 app.get('/search', verifyHttpToken, async (req, res) => {
   try {
-    const state = req.user.state;
-    const lga = req.user.lga;
+    const state = (req.user.state || '').trim();
+    const lga = (req.user.lga || '').trim();
     const query = req.query.q || '';
     
     console.log('Search request for user:', req.user.username, 'Query:', query);
@@ -741,8 +745,9 @@ io.on('connection', (socket) => {
     const attachmentType = data && data.attachmentType ? data.attachmentType : null;
     const parentId = (data && data.parentId) ? Number(data.parentId) : null;
     const username = socket.user.username;
-    const state = socket.user.state || null;
-    const lga = socket.user.lga || null;
+    const state = (socket.user.state || '').trim();
+    const lga = (socket.user.lga || '').trim();
+    const messageRoom = state && lga ? `${state}_${lga}` : null;
     const now = new Date();
 
     // Validate main messages (not replies) for action statements
