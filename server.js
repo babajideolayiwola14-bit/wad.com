@@ -553,7 +553,6 @@ app.get('/profile', verifyHttpToken, async (req, res) => {
        FROM interactions i
        JOIN messages m ON m.id = i.message_id
        WHERE i.username = ?
-         AND m.parent_id IS NULL
        ORDER BY i.created_at DESC
        LIMIT 100`,
       [req.user.username]
