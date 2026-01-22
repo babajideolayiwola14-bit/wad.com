@@ -17,10 +17,19 @@
         }
     });
 
+    // Track if we've loaded the feed yet
+    let feedLoaded = false;
+
     // Wait for socket connection before fetching feed
     socket.on('connect', () => {
         console.log('Socket connected, fetching feed...');
-        fetchFeed();
+        if (!feedLoaded) {
+            feedLoaded = true;
+            // Small delay to ensure DOM is ready
+            setTimeout(() => {
+                fetchFeed();
+            }, 100);
+        }
     });
 
     const messagesDiv = document.getElementById('chat-messages');
