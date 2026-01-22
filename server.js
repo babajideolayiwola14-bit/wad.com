@@ -360,6 +360,10 @@ app.post('/login', authLimiter, async (req, res) => {
   }
 
   // Regular user registration/login
+  if (!state || !lga) {
+    return res.status(400).json({ message: 'State and LGA are required to login' });
+  }
+
   let user = users.find(u => u.username === username);
   let finalState = state;
   let finalLga = lga;
@@ -386,24 +390,6 @@ app.post('/login', authLimiter, async (req, res) => {
     if (!passwordIsValid) {
       console.warn(`Failed login attempt for user: ${username}`);
       return res.status(401).json({ message: 'Invalid username or password' });
-    }
-    
-    // If no state/lga provided in login form, fetch from database (last known location)
-    if (!finalState || !finalLga) {
-      try {
-        const dbUser = await dbAll(
-          'SELECT state, lga FROM users WHERE username = ? LIMIT 1',
-          [username]
-        );
-        if (dbUser && dbUser.length > 0) {
-          // Use database location as fallback
-          finalState = dbUser[0].state || finalState;
-          finalLga = dbUser[0].lga || finalLga;
-          console.log('User', username, 'logging in with stored location:', finalState, finalLga);
-        }
-      } catch (err) {
-        console.error('Failed to fetch user location from database:', err);
-      }
     }
   }
 
