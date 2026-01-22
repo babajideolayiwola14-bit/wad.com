@@ -491,12 +491,15 @@
                     <div class="replies" style="display:none"></div>
                 `;
                 repliesDiv.appendChild(replyItem);
+                // Show replies div if hidden
+                repliesDiv.style.display = 'block';
                 // Update count
-                const replyCount = parentElement.querySelector(':scope > .message-text > .reply-count, :scope > div > .message-text > .reply-count');
+                const replyCount = parentElement.querySelector(':scope > .message-text > .reply-count');
                 const currentCount = repliesDiv.children.length;
                 if (replyCount) {
                     replyCount.innerHTML = `<span style="font-size:16px;margin-right:4px;">\uD83D\uDCAC</span>${currentCount}`;
                     replyCount.style.display = 'inline';
+                    replyCount.style.cursor = 'pointer';
                 }
             }
         } else {
@@ -623,7 +626,11 @@
                         }
                         const payloadMessage = message ? `@${replyTo} ${message}` : `@${replyTo}`;
                         socket.emit('chat message', { message: payloadMessage, parentId, attachmentUrl, attachmentType });
-                        if (parentId) recordInteraction(parentId, 'reply');
+                        if (parentId) {
+                            await recordInteraction(parentId, 'reply');
+                            // Refresh profile to show interaction
+                            await fetchProfile();
+                        }
                         replyForm.remove();
                     } catch (err) {
                         console.error('Reply send failed', err);
