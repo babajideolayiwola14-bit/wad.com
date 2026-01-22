@@ -421,11 +421,34 @@ app.post('/interact', verifyHttpToken, async (req, res) => {
     return res.status(400).json({ message: 'messageId and type are required' });
   }
   try {
+    // Get the message's location
+    const messageLocation = await dbAll(
+      'SELECT state, lga FROM messages WHERE id = ? LIMIT 1',
+      [messageId]
+    );
+    
+    if (messageLocation && messageLocation.length > 0) {
+      const { state, lga } = messageLocation[0];
+      
+      // Update user's location to the message's location
+      await dbRun(
+        'UPDATE users SET state = ?, lga = ? WHERE username = ?',
+        [state, lga, req.user.username]
+      );
+      
+      // Update the in-memory user object
+      req.user.state = state;
+      req.user.lga = lga;
+      
+      console.log('User', req.user.username, 'location updated to', state, lga, 'via interaction');
+    }
+    
+    // Record the interaction
     await dbRun(
       'INSERT INTO interactions (username, message_id, type) VALUES (?, ?, ?)',
       [req.user.username, messageId, type]
     );
-    res.json({ ok: true });
+    res.json({ ok: true, newLocation: messageLocation[0] || null });
   } catch (err) {
     console.error('Failed to record interaction:', err);
     res.status(500).json({ message: 'Failed to record interaction' });
@@ -461,13 +484,12 @@ app.get('/profile', verifyHttpToken, async (req, res) => {
 // Get location-based feed
 app.get('/feed', verifyHttpToken, async (req, res) => {
   try {
-    // Get location from query params or fall back to user's registered location
-    const state = req.query.state || req.user.state;
-    const lga = req.query.lga || req.user.lga;
+    const state = req.user.state;
+    const lga = req.user.lga;
     
     console.log('Feed request for user:', req.user.username, 'State:', state, 'LGA:', lga);
     
-    // Fetch all messages from the specified state and lga, ordered by creation time
+    // Fetch all messages from the same state and lga, ordered by creation time
     const messages = await dbAll(
       `SELECT id, username, state, lga, message, parent_id, attachment_url, attachment_type, created_at
        FROM messages
@@ -489,9 +511,8 @@ app.get('/feed', verifyHttpToken, async (req, res) => {
 // Search messages in user's location
 app.get('/search', verifyHttpToken, async (req, res) => {
   try {
-    // Get location from query params or fall back to user's registered location
-    const state = req.query.state || req.user.state;
-    const lga = req.query.lga || req.user.lga;
+    const state = req.user.state;
+    const lga = req.user.lga;
     const query = req.query.q || '';
     
     console.log('Search request for user:', req.user.username, 'Query:', query);
@@ -500,7 +521,7 @@ app.get('/search', verifyHttpToken, async (req, res) => {
       return res.json({ messages: [] });
     }
     
-    // Search only main messages (parent_id IS NULL) in specified location
+    // Search only main messages (parent_id IS NULL) in user's location
     const messages = await dbAll(
       `SELECT id, username, state, lga, message, parent_id, attachment_url, attachment_type, created_at
        FROM messages
@@ -702,22 +723,10 @@ io.use((socket, next) => {
 io.on('connection', (socket) => {
   console.log('User connected:', socket.user.username);
 
-  // Join location-based room (state_lga) - initially user's registered location
-  let currentRoom = `${socket.user.state}_${socket.user.lga}`;
-  socket.join(currentRoom);
-  console.log('User joined room:', currentRoom);
-
-  // Handle location change
-  socket.on('change location', (newLocation) => {
-    if (newLocation && newLocation.state && newLocation.lga) {
-      // Leave old room
-      socket.leave(currentRoom);
-      // Join new room
-      currentRoom = `${newLocation.state}_${newLocation.lga}`;
-      socket.join(currentRoom);
-      console.log('User', socket.user.username, 'changed to room:', currentRoom);
-    }
-  });
+  // Join location-based room (state_lga)
+  const locationRoom = `${socket.user.state}_${socket.user.lga}`;
+  socket.join(locationRoom);
+  console.log('User joined room:', locationRoom);
 
   // Listen for chat messages
   socket.on('chat message', async (data) => {
@@ -725,12 +734,10 @@ io.on('connection', (socket) => {
     const attachmentUrl = data && data.attachmentUrl ? data.attachmentUrl : null;
     const attachmentType = data && data.attachmentType ? data.attachmentType : null;
     const parentId = (data && data.parentId) ? Number(data.parentId) : null;
-    const location = data && data.location ? data.location : { state: socket.user.state, lga: socket.user.lga };
     const username = socket.user.username;
-    const state = location.state || null;
-    const lga = location.lga || null;
+    const state = socket.user.state || null;
+    const lga = socket.user.lga || null;
     const now = new Date();
-    const messageRoom = `${state}_${lga}`;
 
     // Validate main messages (not replies) for action statements
     if (!parentId) {

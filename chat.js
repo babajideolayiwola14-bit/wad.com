@@ -30,89 +30,6 @@
     const currentUsername = currentUserObj.username;
     const hintText = document.getElementById('hint-text');
 
-    // Location management
-    const activeStateSelect = document.getElementById('active-state');
-    const activeLgaSelect = document.getElementById('active-lga');
-    const changeLocationBtn = document.getElementById('change-location-btn');
-    
-    // Get current active location (default to user's registered location)
-    let currentLocation = JSON.parse(localStorage.getItem('activeLocation') || JSON.stringify({
-        state: currentUserObj.state,
-        lga: currentUserObj.lga
-    }));
-
-    // Nigeria data for location selector
-    const nigeriaData = window.nigeriaData || {};
-
-    // Initialize location selectors
-    function initLocationSelectors() {
-        if (!activeStateSelect) return;
-        
-        // Populate states
-        activeStateSelect.innerHTML = '<option value="">Select State</option>';
-        Object.keys(nigeriaData).forEach(state => {
-            const option = document.createElement('option');
-            option.value = state;
-            option.textContent = state;
-            if (state === currentLocation.state) option.selected = true;
-            activeStateSelect.appendChild(option);
-        });
-        
-        // Populate LGAs for current state
-        updateActiveLGAs();
-    }
-
-    function updateActiveLGAs() {
-        if (!activeLgaSelect || !activeStateSelect) return;
-        const selectedState = activeStateSelect.value;
-        activeLgaSelect.innerHTML = '<option value="">Select LGA</option>';
-        if (selectedState && nigeriaData[selectedState]) {
-            nigeriaData[selectedState].forEach(lga => {
-                const option = document.createElement('option');
-                option.value = lga;
-                option.textContent = lga;
-                if (lga === currentLocation.lga && selectedState === currentLocation.state) {
-                    option.selected = true;
-                }
-                activeLgaSelect.appendChild(option);
-            });
-        }
-    }
-
-    // Handle state change
-    if (activeStateSelect) {
-        activeStateSelect.addEventListener('change', updateActiveLGAs);
-    }
-
-    // Handle location change
-    if (changeLocationBtn) {
-        changeLocationBtn.addEventListener('click', () => {
-            const newState = activeStateSelect.value;
-            const newLga = activeLgaSelect.value;
-            
-            if (!newState || !newLga) {
-                alert('Please select both state and LGA');
-                return;
-            }
-            
-            currentLocation = { state: newState, lga: newLga };
-            localStorage.setItem('activeLocation', JSON.stringify(currentLocation));
-            
-            // Leave old room and join new room
-            socket.emit('change location', currentLocation);
-            
-            // Refresh feed for new location
-            fetchFeed();
-            
-            alert(`Location changed to ${newState}, ${newLga}`);
-        });
-    }
-
-    // Initialize on load
-    if (typeof nigeriaData !== 'undefined') {
-        initLocationSelectors();
-    }
-
     // Real-time hint as user types
     if (messageInput && hintText) {
         messageInput.addEventListener('input', () => {
@@ -164,7 +81,7 @@
         const numericId = Number(messageId);
         if (!numericId || Number.isNaN(numericId)) return;
         try {
-            await fetch('/interact', {
+            const res = await fetch('/interact', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -172,6 +89,18 @@
                 },
                 body: JSON.stringify({ messageId: numericId, type })
             });
+            const data = await res.json();
+            
+            // If location changed, update user object and reload feed
+            if (data.newLocation) {
+                const user = JSON.parse(localStorage.getItem('user') || '{}');
+                user.state = data.newLocation.state;
+                user.lga = data.newLocation.lga;
+                localStorage.setItem('user', JSON.stringify(user));
+                console.log('User location updated to:', data.newLocation.state, data.newLocation.lga);
+                fetchFeed(); // Reload feed for new location
+            }
+            
             fetchProfile();
         } catch (err) {
             console.error('Failed to record interaction', err);
@@ -245,7 +174,7 @@
     async function fetchFeed() {
         if (!token) return;
         try {
-            const res = await fetch(`/feed?state=${encodeURIComponent(currentLocation.state)}&lga=${encodeURIComponent(currentLocation.lga)}`, {
+            const res = await fetch('/feed', {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             if (!res.ok) return;
@@ -261,7 +190,7 @@
     async function searchMessages(query) {
         if (!token) return;
         try {
-            const res = await fetch(`/search?q=${encodeURIComponent(query)}&state=${encodeURIComponent(currentLocation.state)}&lga=${encodeURIComponent(currentLocation.lga)}`, {
+            const res = await fetch(`/search?q=${encodeURIComponent(query)}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             if (!res.ok) return;
@@ -674,7 +603,7 @@
                             attachmentType = uploaded.type;
                         }
                         const payloadMessage = message ? `@${replyTo} ${message}` : `@${replyTo}`;
-                        socket.emit('chat message', { message: payloadMessage, parentId, attachmentUrl, attachmentType, location: currentLocation });
+                        socket.emit('chat message', { message: payloadMessage, parentId, attachmentUrl, attachmentType });
                         if (parentId) recordInteraction(parentId, 'reply');
                         replyForm.remove();
                     } catch (err) {
@@ -721,7 +650,7 @@
                 if (isReplyPage && message) {
                     message = `@${replyTo} ${message}`;
                 }
-                socket.emit('chat message', { message, parentId: null, attachmentUrl, attachmentType, location: currentLocation });
+                socket.emit('chat message', { message, parentId: null, attachmentUrl, attachmentType });
                 messageInput.textContent = '';
                 if (attachmentName) attachmentName.textContent = '';
                 if (attachmentInput) attachmentInput.value = '';
