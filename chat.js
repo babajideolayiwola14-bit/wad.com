@@ -384,6 +384,10 @@
             localStorage.removeItem('user');
             localStorage.removeItem('state');
             localStorage.removeItem('lga');
+            // Reset chat loaded flags
+            window.chatLoaded = false;
+            window.chatScriptsLoading = false;
+            feedLoaded = false;
             // Hide chat, show login
             const chatContainer = document.getElementById('chat-container');
             const loginContainer = document.getElementById('login-container');
