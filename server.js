@@ -7,9 +7,12 @@ const path = require('path');
 const fs = require('fs');
 const http = require('http');
 const socketIo = require('socket.io');
-const sqlite3 = require('sqlite3').verbose();
 const multer = require('multer');
 require('dotenv').config();
+
+// Database modules
+const sqlite3 = require('sqlite3').verbose();
+const { Pool } = require('pg');
 
 // Security modules
 const rateLimit = require('express-rate-limit');
@@ -41,37 +44,94 @@ if (NODE_ENV === 'production') {
   }
 }
 
-// Database (SQLite) – file-based, no setup needed
-const db = new sqlite3.Database('./chatapp.db', (err) => {
-  if (err) {
-    console.error('Failed to open database:', err);
-  } else {
-    console.log('Connected to SQLite database');
-    ensureSchema();
-  }
-});
+// Database setup - use PostgreSQL on Heroku, SQLite locally
+const USE_POSTGRES = !!process.env.DATABASE_URL;
+let db, pool;
 
-// Helper to promisify db.run and db.all
-function dbRun(sql, params = []) {
-  return new Promise((resolve, reject) => {
-    db.run(sql, params, function(err) {
-      if (err) reject(err);
-      else resolve({ lastID: this.lastID, changes: this.changes });
-    });
+if (USE_POSTGRES) {
+  // PostgreSQL for production (Heroku)
+  pool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: { rejectUnauthorized: false }
+  });
+  console.log('Using PostgreSQL database');
+  ensureSchema();
+} else {
+  // SQLite for local development
+  db = new sqlite3.Database('./chatapp.db', (err) => {
+    if (err) {
+      console.error('Failed to open database:', err);
+    } else {
+      console.log('Using SQLite database');
+      ensureSchema();
+    }
   });
 }
 
-function dbAll(sql, params = []) {
-  return new Promise((resolve, reject) => {
-    db.all(sql, params, (err, rows) => {
-      if (err) reject(err);
-      else resolve(rows || []);
+// Helper to promisify db.run and db.all - works for both databases
+async function dbRun(sql, params = []) {
+  if (USE_POSTGRES) {
+    // Convert ? to $1, $2, etc for PostgreSQL
+    let pgSql = sql;
+    let count = 0;
+    pgSql = pgSql.replace(/\?/g, () => `$${++count}`);
+    const client = await pool.connect();
+    try {
+      const result = await client.query(pgSql, params);
+      return { lastID: result.rows[0]?.id, changes: result.rowCount, rows: result.rows };
+    } finally {
+      client.release();
+    }
+  } else {
+    return new Promise((resolve, reject) => {
+      db.run(sql, params, function(err) {
+        if (err) reject(err);
+        else resolve({ lastID: this.lastID, changes: this.changes });
+      });
     });
-  });
+  }
+}
+
+async function dbAll(sql, params = []) {
+  if (USE_POSTGRES) {
+    // Convert ? to $1, $2, etc for PostgreSQL
+    let pgSql = sql;
+    let count = 0;
+    pgSql = pgSql.replace(/\?/g, () => `$${++count}`);
+    const client = await pool.connect();
+    try {
+      const result = await client.query(pgSql, params);
+      return result.rows || [];
+    } finally {
+      client.release();
+    }
+  } else {
+    return new Promise((resolve, reject) => {
+      db.all(sql, params, (err, rows) => {
+        if (err) reject(err);
+        else resolve(rows || []);
+      });
+    });
+  }
 }
 
 async function ensureSchema() {
-  const createMessagesTable = `
+  const isPostgres = USE_POSTGRES;
+  
+  const createMessagesTable = isPostgres ? `
+    CREATE TABLE IF NOT EXISTS messages (
+      id SERIAL PRIMARY KEY,
+      username TEXT NOT NULL,
+      state TEXT,
+      lga TEXT,
+      message TEXT NOT NULL,
+      parent_id INTEGER,
+      attachment_url TEXT,
+      attachment_type TEXT,
+      deleted_at TIMESTAMP,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+  ` : `
     CREATE TABLE IF NOT EXISTS messages (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       username TEXT NOT NULL,
@@ -85,7 +145,16 @@ async function ensureSchema() {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
   `;
-  const createUsersTable = `
+  
+  const createUsersTable = isPostgres ? `
+    CREATE TABLE IF NOT EXISTS users (
+      username TEXT PRIMARY KEY,
+      password_hash TEXT,
+      state TEXT,
+      lga TEXT,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+  ` : `
     CREATE TABLE IF NOT EXISTS users (
       username TEXT PRIMARY KEY,
       password_hash TEXT,
@@ -94,7 +163,16 @@ async function ensureSchema() {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
   `;
-  const createInteractionsTable = `
+  
+  const createInteractionsTable = isPostgres ? `
+    CREATE TABLE IF NOT EXISTS interactions (
+      id SERIAL PRIMARY KEY,
+      username TEXT NOT NULL REFERENCES users(username) ON DELETE CASCADE,
+      message_id INTEGER NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
+      type TEXT NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+  ` : `
     CREATE TABLE IF NOT EXISTS interactions (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       username TEXT NOT NULL REFERENCES users(username) ON DELETE CASCADE,
@@ -103,7 +181,21 @@ async function ensureSchema() {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
   `;
-  const createFlaggedMessagesTable = `
+  
+  const createFlaggedMessagesTable = isPostgres ? `
+    CREATE TABLE IF NOT EXISTS flagged_messages (
+      id SERIAL PRIMARY KEY,
+      username TEXT NOT NULL,
+      message TEXT NOT NULL,
+      rejection_reason TEXT,
+      state TEXT,
+      lga TEXT,
+      status TEXT DEFAULT 'pending',
+      reviewed_by TEXT,
+      reviewed_at TIMESTAMP,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+  ` : `
     CREATE TABLE IF NOT EXISTS flagged_messages (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       username TEXT NOT NULL,
@@ -123,23 +215,6 @@ async function ensureSchema() {
     await dbRun(createUsersTable);
     await dbRun(createInteractionsTable);
     await dbRun(createFlaggedMessagesTable);
-
-    // Backward-compatible column additions
-    try {
-      await dbRun('ALTER TABLE messages ADD COLUMN attachment_url TEXT');
-    } catch (e) {
-      // ignore if exists
-    }
-    try {
-      await dbRun('ALTER TABLE messages ADD COLUMN attachment_type TEXT');
-    } catch (e) {
-      // ignore if exists
-    }
-    try {
-      await dbRun('ALTER TABLE messages ADD COLUMN deleted_at DATETIME');
-    } catch (e) {
-      // ignore if exists
-    }
     console.log('Database schema initialized successfully');
   } catch (err) {
     console.error('Failed to ensure schema:', err);
@@ -599,7 +674,9 @@ app.post('/admin/approve/:id', verifyHttpToken, async (req, res) => {
     const msg = flagged[0];
     // Post the message
     const result = await dbRun(
-      'INSERT INTO messages (username, state, lga, message, parent_id) VALUES (?, ?, ?, ?, ?)',
+      USE_POSTGRES 
+        ? 'INSERT INTO messages (username, state, lga, message, parent_id) VALUES (?, ?, ?, ?, ?) RETURNING id'
+        : 'INSERT INTO messages (username, state, lga, message, parent_id) VALUES (?, ?, ?, ?, ?)',
       [msg.username, msg.state, msg.lga, msg.message, null]
     );
     // Mark as approved
@@ -610,7 +687,7 @@ app.post('/admin/approve/:id', verifyHttpToken, async (req, res) => {
     // Broadcast to room
     const room = `${msg.state}_${msg.lga}`;
     io.to(room).emit('chat message', {
-      id: result.lastID,
+      id: USE_POSTGRES ? result.rows[0].id : result.lastID,
       username: msg.username,
       message: msg.message,
       attachmentUrl: null,
@@ -779,10 +856,12 @@ io.on('connection', (socket) => {
     try {
       console.log('Saving message from:', username, 'State:', state, 'LGA:', lga);
       const result = await dbRun(
-        'INSERT INTO messages (username, state, lga, message, parent_id, attachment_url, attachment_type) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        USE_POSTGRES
+          ? 'INSERT INTO messages (username, state, lga, message, parent_id, attachment_url, attachment_type) VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id'
+          : 'INSERT INTO messages (username, state, lga, message, parent_id, attachment_url, attachment_type) VALUES (?, ?, ?, ?, ?, ?, ?)',
         [username, state, lga, message, parentId, attachmentUrl, attachmentType]
       );
-      const messageId = result.lastID;
+      const messageId = USE_POSTGRES ? result.rows[0].id : result.lastID;
       console.log('Message saved with ID:', messageId);
       
       // Record interaction for replies
