@@ -229,7 +229,7 @@
                 // Switch to the message's location
                 console.log(`Switching from ${currentState}/${currentLga} to ${messageState}/${messageLga}`);
                 
-                // Update user location
+                // Update user location in localStorage
                 user.state = messageState;
                 user.lga = messageLga;
                 localStorage.setItem('user', JSON.stringify(user));
@@ -240,9 +240,25 @@
                     chatHeader.textContent = `${messageState}, ${messageLga}`;
                 }
                 
+                // Update location in database via server
+                const currentToken = localStorage.getItem('token');
+                try {
+                    await fetch('/update-location', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${currentToken}`
+                        },
+                        body: JSON.stringify({ state: messageState, lga: messageLga })
+                    });
+                    console.log('Database location updated');
+                } catch (err) {
+                    console.error('Failed to update location in database:', err);
+                }
+                
                 // Reconnect socket to new location room
                 socket.disconnect();
-                socket.auth.token = localStorage.getItem('token'); // Refresh token
+                socket.auth.token = currentToken; // Refresh token
                 socket.connect();
                 
                 // Wait for reconnection

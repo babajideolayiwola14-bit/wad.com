@@ -636,6 +636,28 @@ app.get('/profile', verifyHttpToken, async (req, res) => {
   }
 });
 
+// Update user location
+app.post('/update-location', verifyHttpToken, async (req, res) => {
+  const { state, lga } = req.body;
+  
+  if (!state || !lga) {
+    return res.status(400).json({ message: 'State and LGA are required' });
+  }
+  
+  try {
+    await dbRun(
+      'UPDATE users SET state = ?, lga = ? WHERE username = ?',
+      [state.trim(), lga.trim(), req.user.username]
+    );
+    console.log(`Updated location for ${req.user.username} to ${state}/${lga}`);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('Failed to update location:', err);
+    res.status(500).json({ message: 'Failed to update location' });
+  }
+});
+
+// Get location-based feed
 // Get location-based feed
 app.get('/feed', verifyHttpToken, async (req, res) => {
   try {
