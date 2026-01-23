@@ -406,6 +406,61 @@ const upload = multer({ storage });
 const users = [];
 let nextUserId = 1;
 
+// Registration endpoint
+app.post('/register', authLimiter, async (req, res) => {
+  const { username, password } = req.body;
+
+  if (!username || !password) {
+    return res.status(400).json({ message: 'Username and password are required' });
+  }
+
+  if (!isValidUsername(username)) {
+    return res.status(400).json({ message: 'Invalid username format (3-30 alphanumeric characters)' });
+  }
+
+  if (!isValidPassword(password)) {
+    return res.status(400).json({ 
+      message: 'Password must be at least 8 characters with uppercase, lowercase, and numbers' 
+    });
+  }
+
+  try {
+    // Check if user already exists
+    const existing = await dbAll(
+      'SELECT username FROM users WHERE username = ? LIMIT 1',
+      [username]
+    );
+
+    if (existing && existing.length > 0) {
+      return res.status(400).json({ message: 'Username already exists' });
+    }
+
+    // Hash password and create user
+    const hashedPassword = bcrypt.hashSync(password, 10);
+    
+    await dbRun(
+      USE_POSTGRES
+        ? 'INSERT INTO users (username, password_hash, created_at) VALUES ($1, $2, CURRENT_TIMESTAMP)'
+        : 'INSERT INTO users (username, password_hash, created_at) VALUES (?, ?, CURRENT_TIMESTAMP)',
+      [username, hashedPassword]
+    );
+
+    // Add to in-memory store
+    users.push({
+      id: nextUserId++,
+      username: username,
+      password: hashedPassword,
+      role: 'user'
+    });
+
+    console.log('New user registered:', username);
+    res.status(200).json({ message: 'Registration successful' });
+  } catch (err) {
+    console.error('Registration failed:', err);
+    res.status(500).json({ message: 'Registration failed' });
+  }
+});
+
 // Login endpoint (auto-registers new users) with security
 app.post('/login', authLimiter, async (req, res) => {
   const { username, password, state, lga } = req.body;
@@ -487,11 +542,21 @@ app.post('/login', authLimiter, async (req, res) => {
   // Upsert user profile in database with current location
   const upsertUser = async () => {
     try {
-      await dbRun(
-        `INSERT OR REPLACE INTO users (username, password_hash, state, lga, created_at)
-         VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)`,
-        [user.username, user.password, finalState || null, finalLga || null]
-      );
+      if (USE_POSTGRES) {
+        await dbRun(
+          `INSERT INTO users (username, password_hash, state, lga, created_at)
+           VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP)
+           ON CONFLICT (username) 
+           DO UPDATE SET state = $3, lga = $4`,
+          [user.username, user.password, finalState || null, finalLga || null]
+        );
+      } else {
+        await dbRun(
+          `INSERT OR REPLACE INTO users (username, password_hash, state, lga, created_at)
+           VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)`,
+          [user.username, user.password, finalState || null, finalLga || null]
+        );
+      }
     } catch (err) {
       console.error('Failed to upsert user profile:', err);
     }
