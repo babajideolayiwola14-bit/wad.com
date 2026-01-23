@@ -72,9 +72,22 @@
     // Mobile profile toggle
     const toggleProfileBtn = document.getElementById('toggle-profile');
     const profilePanel = document.getElementById('profile-panel');
-    if (toggleProfileBtn) {
+    const profileOverlay = document.getElementById('profile-overlay');
+    
+    if (toggleProfileBtn && profilePanel) {
         toggleProfileBtn.addEventListener('click', () => {
             profilePanel.classList.toggle('show');
+            if (profileOverlay) {
+                profileOverlay.classList.toggle('show');
+            }
+        });
+    }
+    
+    // Close profile when clicking overlay
+    if (profileOverlay && profilePanel) {
+        profileOverlay.addEventListener('click', () => {
+            profilePanel.classList.remove('show');
+            profileOverlay.classList.remove('show');
         });
     }
 
