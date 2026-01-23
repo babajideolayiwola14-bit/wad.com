@@ -846,6 +846,57 @@ app.get('/admin/db/interactions', verifyHttpToken, async (req, res) => {
   }
 });
 
+// Admin: Remove duplicate interactions
+app.post('/admin/remove-duplicate-interactions', verifyHttpToken, async (req, res) => {
+  try {
+    // First, get all duplicates
+    const duplicates = await dbAll(`
+      SELECT username, message_id, type, COUNT(*) as count
+      FROM interactions
+      GROUP BY username, message_id, type
+      HAVING COUNT(*) > 1
+    `);
+    
+    if (duplicates.length === 0) {
+      return res.json({ message: 'No duplicates found', removed: 0 });
+    }
+    
+    // For each duplicate group, keep only the first one (lowest id)
+    let totalRemoved = 0;
+    for (const dup of duplicates) {
+      const deleteQuery = USE_POSTGRES
+        ? `DELETE FROM interactions 
+           WHERE username = $1 AND message_id = $2 AND type = $3 
+           AND id NOT IN (
+             SELECT MIN(id) FROM interactions 
+             WHERE username = $1 AND message_id = $2 AND type = $3
+           )`
+        : `DELETE FROM interactions 
+           WHERE username = ? AND message_id = ? AND type = ? 
+           AND id NOT IN (
+             SELECT MIN(id) FROM interactions 
+             WHERE username = ? AND message_id = ? AND type = ?
+           )`;
+      
+      const params = USE_POSTGRES 
+        ? [dup.username, dup.message_id, dup.type]
+        : [dup.username, dup.message_id, dup.type, dup.username, dup.message_id, dup.type];
+      
+      await dbRun(deleteQuery, params);
+      totalRemoved += (dup.count - 1); // Remove all but one
+    }
+    
+    res.json({ 
+      message: 'Duplicates removed successfully', 
+      duplicateGroups: duplicates.length,
+      removed: totalRemoved 
+    });
+  } catch (err) {
+    console.error('Failed to remove duplicates:', err);
+    res.status(500).json({ message: 'Failed to remove duplicates', error: err.message });
+  }
+});
+
 // Admin: Run custom SQL query (read-only)
 app.post('/admin/query', verifyHttpToken, async (req, res) => {
   try {
