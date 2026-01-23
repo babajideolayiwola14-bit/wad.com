@@ -94,7 +94,11 @@
 
     async function recordInteraction(messageId, type) {
         const numericId = Number(messageId);
-        if (!numericId || Number.isNaN(numericId)) return;
+        if (!numericId || Number.isNaN(numericId)) {
+            console.log('Invalid messageId for interaction:', messageId);
+            return;
+        }
+        console.log('Recording interaction:', type, 'for message:', numericId);
         try {
             const res = await fetch('/interact', {
                 method: 'POST',
@@ -105,6 +109,7 @@
                 body: JSON.stringify({ messageId: numericId, type })
             });
             const data = await res.json();
+            console.log('Interaction recorded:', data);
             
             // If location changed, update user object and reload feed
             if (data.newLocation) {
@@ -116,7 +121,8 @@
                 fetchFeed(); // Reload feed for new location
             }
             
-            fetchProfile();
+            console.log('Fetching profile after interaction...');
+            await fetchProfile();
         } catch (err) {
             console.error('Failed to record interaction', err);
         }
@@ -626,9 +632,8 @@
                         const payloadMessage = message ? `@${replyTo} ${message}` : `@${replyTo}`;
                         socket.emit('chat message', { message: payloadMessage, parentId, attachmentUrl, attachmentType });
                         if (parentId) {
+                            console.log('Reply sent, recording interaction for parent:', parentId);
                             await recordInteraction(parentId, 'reply');
-                            // Refresh profile to show interaction
-                            await fetchProfile();
                         }
                         replyForm.remove();
                     } catch (err) {
