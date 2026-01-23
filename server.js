@@ -486,7 +486,7 @@ app.post('/login', authLimiter, async (req, res) => {
     const token = jwt.sign(
       { username, role: 'admin', state: 'Admin', lga: 'Admin' },
       SECRET_KEY,
-      { expiresIn: process.env.JWT_EXPIRY || 86400 }
+      { expiresIn: process.env.JWT_EXPIRY || '30d' }
     );
     return res.status(200).json({
       auth: true,
@@ -536,7 +536,7 @@ app.post('/login', authLimiter, async (req, res) => {
   const token = jwt.sign(
     { id: user.id, username: user.username, role: user.role || 'user', state: finalState, lga: finalLga },
     SECRET_KEY,
-    { expiresIn: process.env.JWT_EXPIRY || 86400 }
+    { expiresIn: process.env.JWT_EXPIRY || '30d' }
   );
 
   // Upsert user profile in database with current location
