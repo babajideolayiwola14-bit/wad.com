@@ -178,5 +178,61 @@ document.getElementById('login-form').addEventListener('submit', async function(
     }
 });
 
+// Registration form handler
+const registerForm = document.getElementById('register-form');
+if (registerForm) {
+    registerForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const username = document.getElementById('reg-username').value;
+        const password = document.getElementById('reg-password').value;
+        const registerMessage = document.getElementById('register-message');
+
+        try {
+            const response = await fetch('/register', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password })
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                registerMessage.textContent = 'Registration successful! Please login.';
+                registerMessage.style.color = 'green';
+                setTimeout(() => {
+                    document.getElementById('register-container').style.display = 'none';
+                    document.getElementById('login-container').style.display = 'block';
+                }, 1500);
+            } else {
+                registerMessage.textContent = data.message;
+                registerMessage.style.color = 'red';
+            }
+        } catch (error) {
+            registerMessage.textContent = 'An error occurred. Please try again.';
+            registerMessage.style.color = 'red';
+        }
+    });
+}
+
+// Toggle between login and register
+const showRegister = document.getElementById('show-register');
+const showLogin = document.getElementById('show-login');
+
+if (showRegister) {
+    showRegister.addEventListener('click', (e) => {
+        e.preventDefault();
+        document.getElementById('login-container').style.display = 'none';
+        document.getElementById('register-container').style.display = 'block';
+    });
+}
+
+if (showLogin) {
+    showLogin.addEventListener('click', (e) => {
+        e.preventDefault();
+        document.getElementById('register-container').style.display = 'none';
+        document.getElementById('login-container').style.display = 'block';
+    });
+}
+
 // Attempt to restore session on page load (persists login after refresh)
 resumeSession();

@@ -310,13 +310,19 @@ function isActionStatement(message) {
 
 function verifyHttpToken(req, res, next) {
   const auth = req.headers.authorization;
-  if (!auth) return res.status(401).json({ message: 'No token provided' });
+  if (!auth) {
+    console.log('No authorization header');
+    return res.status(401).json({ message: 'No token provided' });
+  }
   const token = auth.replace('Bearer ', '');
+  console.log('Verifying HTTP token, first 20 chars:', token.substring(0, 20));
   try {
     const decoded = jwt.verify(token, SECRET_KEY);
+    console.log('Token verified for user:', decoded.username);
     req.user = decoded;
     next();
   } catch (err) {
+    console.error('Token verification failed:', err.message);
     return res.status(401).json({ message: 'Invalid token' });
   }
 }
