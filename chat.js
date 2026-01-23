@@ -266,6 +266,15 @@
                     console.log('Reconnected to new location');
                     await fetchFeed();
                     
+                    // Filter to show only the clicked message
+                    const allMessages = Array.from(messagesDiv.children);
+                    allMessages.forEach(msg => {
+                        const msgId = Number(msg.dataset.id);
+                        if (msgId !== messageId) {
+                            msg.style.display = 'none';
+                        }
+                    });
+                    
                     // Wait a bit for rendering, then scroll
                     setTimeout(() => {
                         const messageElement = document.querySelector(`[data-id="${messageId}"]`);
