@@ -193,17 +193,100 @@
                 });
             }
             
+            // Group interactions by location
+            const locationGroups = {};
             data.interactions.forEach(item => {
-                const div = document.createElement('div');
-                div.className = 'profile-interaction-item';
-                div.dataset.messageId = item.message_id;
-                div.dataset.state = item.state;
-                div.dataset.lga = item.lga;
-                div.innerHTML = `
-                    <div class="profile-interaction-meta">${item.type} • ${new Date(item.created_at).toLocaleString()}</div>
-                    <div class="profile-interaction-text">${item.message} <small>(${item.state}, ${item.lga})</small></div>
+                const locationKey = `${item.state}|${item.lga}`;
+                if (!locationGroups[locationKey]) {
+                    locationGroups[locationKey] = {
+                        state: item.state,
+                        lga: item.lga,
+                        interactions: [],
+                        latestTime: new Date(item.created_at)
+                    };
+                }
+                locationGroups[locationKey].interactions.push(item);
+                const itemTime = new Date(item.created_at);
+                if (itemTime > locationGroups[locationKey].latestTime) {
+                    locationGroups[locationKey].latestTime = itemTime;
+                }
+            });
+            
+            // Sort locations by most recent interaction
+            const sortedLocations = Object.values(locationGroups).sort((a, b) => b.latestTime - a.latestTime);
+            
+            // Render each location group
+            sortedLocations.forEach(location => {
+                // Create location header
+                const locationHeader = document.createElement('div');
+                locationHeader.className = 'location-group-header';
+                locationHeader.style.cssText = 'padding:10px; background:#f0f0f0; cursor:pointer; font-weight:bold; border-radius:4px; margin-bottom:5px; display:flex; justify-content:space-between; align-items:center;';
+                locationHeader.innerHTML = `
+                    <span><span class="toggle-icon">▼</span> ${location.state}, ${location.lga}</span>
+                    <span style="font-size:12px; background:#007bff; color:white; padding:2px 8px; border-radius:10px;">${location.interactions.length}</span>
                 `;
-                profileInteractions.appendChild(div);
+                
+                // Create container for interactions in this location
+                const interactionsContainer = document.createElement('div');
+                interactionsContainer.className = 'location-interactions';
+                interactionsContainer.style.cssText = 'margin-bottom:15px; padding-left:10px;';
+                
+                // Add interactions to container (limit to 10 initially)
+                const displayLimit = 10;
+                location.interactions.slice(0, displayLimit).forEach(item => {
+                    const div = document.createElement('div');
+                    div.className = 'profile-interaction-item';
+                    div.dataset.messageId = item.message_id;
+                    div.dataset.state = item.state;
+                    div.dataset.lga = item.lga;
+                    div.style.cssText = 'padding:8px; margin:5px 0; background:#fff; border-left:3px solid #007bff; cursor:pointer;';
+                    div.innerHTML = `
+                        <div class="profile-interaction-meta" style="font-size:11px; color:#666;">${item.type} • ${new Date(item.created_at).toLocaleString()}</div>
+                        <div class="profile-interaction-text" style="font-size:13px; margin-top:4px;">${item.message.substring(0, 80)}${item.message.length > 80 ? '...' : ''}</div>
+                    `;
+                    interactionsContainer.appendChild(div);
+                });
+                
+                // Add "Show more" button if there are more interactions
+                if (location.interactions.length > displayLimit) {
+                    const showMoreBtn = document.createElement('button');
+                    showMoreBtn.textContent = `Show ${location.interactions.length - displayLimit} more`;
+                    showMoreBtn.style.cssText = 'padding:5px 10px; margin:5px 0; background:#e0e0e0; border:none; border-radius:3px; cursor:pointer; font-size:12px;';
+                    showMoreBtn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        // Add remaining interactions
+                        location.interactions.slice(displayLimit).forEach(item => {
+                            const div = document.createElement('div');
+                            div.className = 'profile-interaction-item';
+                            div.dataset.messageId = item.message_id;
+                            div.dataset.state = item.state;
+                            div.dataset.lga = item.lga;
+                            div.style.cssText = 'padding:8px; margin:5px 0; background:#fff; border-left:3px solid #007bff; cursor:pointer;';
+                            div.innerHTML = `
+                                <div class="profile-interaction-meta" style="font-size:11px; color:#666;">${item.type} • ${new Date(item.created_at).toLocaleString()}</div>
+                                <div class="profile-interaction-text" style="font-size:13px; margin-top:4px;">${item.message.substring(0, 80)}${item.message.length > 80 ? '...' : ''}</div>
+                            `;
+                            interactionsContainer.insertBefore(div, showMoreBtn);
+                        });
+                        showMoreBtn.remove();
+                    });
+                    interactionsContainer.appendChild(showMoreBtn);
+                }
+                
+                // Toggle collapse/expand on header click
+                locationHeader.addEventListener('click', () => {
+                    const toggleIcon = locationHeader.querySelector('.toggle-icon');
+                    if (interactionsContainer.style.display === 'none') {
+                        interactionsContainer.style.display = 'block';
+                        toggleIcon.textContent = '▼';
+                    } else {
+                        interactionsContainer.style.display = 'none';
+                        toggleIcon.textContent = '▶';
+                    }
+                });
+                
+                profileInteractions.appendChild(locationHeader);
+                profileInteractions.appendChild(interactionsContainer);
             });
         }
     }
