@@ -79,12 +79,25 @@
     }
 
     async function fetchProfile() {
-        if (!token) return;
+        const currentToken = localStorage.getItem('token');
+        if (!currentToken) {
+            console.error('No token for profile fetch');
+            return;
+        }
+        
         try {
             const res = await fetch('/profile', {
-                headers: { 'Authorization': `Bearer ${token}` }
+                headers: { 'Authorization': `Bearer ${currentToken}` }
             });
-            if (!res.ok) return;
+            
+            if (!res.ok) {
+                console.error('Profile fetch failed:', res.status);
+                if (res.status === 401) {
+                    console.error('Token invalid for profile fetch');
+                }
+                return;
+            }
+            
             const data = await res.json();
             renderProfile(data);
         } catch (err) {
@@ -98,16 +111,37 @@
             console.log('Invalid messageId for interaction:', messageId);
             return;
         }
+        
+        // Get fresh token from localStorage
+        const currentToken = localStorage.getItem('token');
+        if (!currentToken) {
+            console.error('No token found in localStorage');
+            alert('Session expired. Please log in again.');
+            return;
+        }
+        
         console.log('Recording interaction:', type, 'for message:', numericId);
+        console.log('Token (first 20 chars):', currentToken.substring(0, 20) + '...');
+        
         try {
             const res = await fetch('/interact', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
+                    'Authorization': `Bearer ${currentToken}`
                 },
                 body: JSON.stringify({ messageId: numericId, type })
             });
+            
+            if (!res.ok) {
+                const errorText = await res.text();
+                console.error('Interaction failed:', res.status, errorText);
+                if (res.status === 401) {
+                    alert('Session expired. Please log in again.');
+                }
+                return;
+            }
+            
             const data = await res.json();
             console.log('Interaction recorded:', data);
             
