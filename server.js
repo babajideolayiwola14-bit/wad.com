@@ -897,6 +897,54 @@ app.post('/admin/remove-duplicate-interactions', verifyHttpToken, async (req, re
   }
 });
 
+// Temporary: Trim all location data in database
+app.post('/admin/normalize-locations', async (req, res) => {
+  try {
+    // Trim all state/lga in messages table
+    const messages = await dbAll('SELECT id, state, lga FROM messages');
+    let messagesUpdated = 0;
+    for (const msg of messages) {
+      const trimmedState = (msg.state || '').trim();
+      const trimmedLga = (msg.lga || '').trim();
+      if (trimmedState !== msg.state || trimmedLga !== msg.lga) {
+        await dbRun(
+          USE_POSTGRES 
+            ? 'UPDATE messages SET state = $1, lga = $2 WHERE id = $3'
+            : 'UPDATE messages SET state = ?, lga = ? WHERE id = ?',
+          USE_POSTGRES ? [trimmedState, trimmedLga, msg.id] : [trimmedState, trimmedLga, msg.id]
+        );
+        messagesUpdated++;
+      }
+    }
+    
+    // Trim all state/lga in users table
+    const users = await dbAll('SELECT username, state, lga FROM users');
+    let usersUpdated = 0;
+    for (const user of users) {
+      const trimmedState = (user.state || '').trim();
+      const trimmedLga = (user.lga || '').trim();
+      if (trimmedState !== user.state || trimmedLga !== user.lga) {
+        await dbRun(
+          USE_POSTGRES 
+            ? 'UPDATE users SET state = $1, lga = $2 WHERE username = $3'
+            : 'UPDATE users SET state = ?, lga = ? WHERE username = ?',
+          USE_POSTGRES ? [trimmedState, trimmedLga, user.username] : [trimmedState, trimmedLga, user.username]
+        );
+        usersUpdated++;
+      }
+    }
+    
+    res.json({ 
+      message: 'Locations normalized successfully', 
+      messagesUpdated,
+      usersUpdated
+    });
+  } catch (err) {
+    console.error('Failed to normalize locations:', err);
+    res.status(500).json({ message: 'Failed to normalize locations', error: err.message });
+  }
+});
+
 // Admin: Run custom SQL query (read-only)
 app.post('/admin/query', verifyHttpToken, async (req, res) => {
   try {
