@@ -639,8 +639,14 @@ app.get('/profile', verifyHttpToken, async (req, res) => {
 // Get location-based feed
 app.get('/feed', verifyHttpToken, async (req, res) => {
   try {
-    const state = (req.user.state || '').trim();
-    const lga = (req.user.lga || '').trim();
+    // Get user's current location from database (not from token)
+    const userLocation = await dbAll(
+      'SELECT state, lga FROM users WHERE username = ? LIMIT 1',
+      [req.user.username]
+    );
+    
+    const state = userLocation && userLocation[0] ? (userLocation[0].state || '').trim() : '';
+    const lga = userLocation && userLocation[0] ? (userLocation[0].lga || '').trim() : '';
     
     console.log('Feed request for user:', req.user.username, 'State:', state, 'LGA:', lga);
     
