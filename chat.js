@@ -238,7 +238,6 @@
                 locationHeader.style.cssText = 'padding:10px; background:#f0f0f0; cursor:pointer; font-weight:bold; border-radius:4px; margin-bottom:5px; display:flex; justify-content:space-between; align-items:center;';
                 locationHeader.innerHTML = `
                     <span><span class="toggle-icon">▼</span> ${location.state}, ${location.lga}</span>
-                    <span style="font-size:12px; background:#007bff; color:white; padding:2px 8px; border-radius:10px;">${location.interactions.length}</span>
                 `;
                 
                 // Create container for interactions in this location
@@ -389,15 +388,29 @@
                     }, 200);
                 });
             } else {
-                // Same location, just scroll to the message
-                const messageElement = document.querySelector(`[data-id="${messageId}"]`);
-                if (messageElement) {
-                    messageElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    messageElement.style.backgroundColor = '#fff3cd';
-                    setTimeout(() => {
-                        messageElement.style.backgroundColor = '';
-                    }, 2000);
-                }
+                // Same location, fetch feed to ensure messages are loaded
+                await fetchFeed();
+                
+                // Filter to show only the clicked message
+                const allMessages = Array.from(messagesDiv.children);
+                allMessages.forEach(msg => {
+                    const msgId = Number(msg.dataset.id);
+                    if (msgId !== messageId) {
+                        msg.style.display = 'none';
+                    }
+                });
+                
+                // Scroll to the message
+                setTimeout(() => {
+                    const messageElement = document.querySelector(`[data-id="${messageId}"]`);
+                    if (messageElement) {
+                        messageElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        messageElement.style.backgroundColor = '#fff3cd';
+                        setTimeout(() => {
+                            messageElement.style.backgroundColor = '';
+                        }, 2000);
+                    }
+                }, 200);
             }
         });
     }
