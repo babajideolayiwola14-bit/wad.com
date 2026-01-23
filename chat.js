@@ -185,7 +185,8 @@
                 viewAllBtn.style.cssText = 'padding:8px 12px; margin-bottom:10px; background:#007bff; color:white; border:none; border-radius:4px; cursor:pointer;';
                 messagesDiv.parentElement.insertBefore(viewAllBtn, messagesDiv);
                 viewAllBtn.addEventListener('click', () => {
-                    renderFeed(allFeedMessages);
+                    // Fetch fresh messages from current location
+                    fetchFeed();
                 });
             }
             
