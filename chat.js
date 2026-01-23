@@ -105,6 +105,9 @@
         }
     }
 
+    // Track pending interactions to prevent duplicates
+    const pendingInteractions = new Set();
+    
     async function recordInteraction(messageId, type) {
         const numericId = Number(messageId);
         if (!numericId || Number.isNaN(numericId)) {
@@ -112,11 +115,20 @@
             return;
         }
         
+        // Prevent duplicate interactions
+        const key = `${numericId}-${type}`;
+        if (pendingInteractions.has(key)) {
+            console.log('Interaction already in progress, skipping:', key);
+            return;
+        }
+        pendingInteractions.add(key);
+        
         // Get fresh token from localStorage
         const currentToken = localStorage.getItem('token');
         if (!currentToken) {
             console.error('No token found in localStorage');
             alert('Session expired. Please log in again.');
+            pendingInteractions.delete(key);
             return;
         }
         
@@ -159,6 +171,9 @@
             await fetchProfile();
         } catch (err) {
             console.error('Failed to record interaction', err);
+        } finally {
+            // Remove from pending after a short delay to prevent rapid duplicates
+            setTimeout(() => pendingInteractions.delete(key), 1000);
         }
     }
 
