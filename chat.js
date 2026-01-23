@@ -240,20 +240,28 @@
                     chatHeader.textContent = `${messageState}, ${messageLga}`;
                 }
                 
-                // Fetch feed for new location
-                await fetchFeed();
+                // Reconnect socket to new location room
+                socket.disconnect();
+                socket.auth.token = localStorage.getItem('token'); // Refresh token
+                socket.connect();
                 
-                // Wait a bit for rendering, then scroll
-                setTimeout(() => {
-                    const messageElement = document.querySelector(`[data-id="${messageId}"]`);
-                    if (messageElement) {
-                        messageElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                        messageElement.style.backgroundColor = '#fff3cd';
-                        setTimeout(() => {
-                            messageElement.style.backgroundColor = '';
-                        }, 2000);
-                    }
-                }, 200);
+                // Wait for reconnection
+                socket.once('connect', async () => {
+                    console.log('Reconnected to new location');
+                    await fetchFeed();
+                    
+                    // Wait a bit for rendering, then scroll
+                    setTimeout(() => {
+                        const messageElement = document.querySelector(`[data-id="${messageId}"]`);
+                        if (messageElement) {
+                            messageElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            messageElement.style.backgroundColor = '#fff3cd';
+                            setTimeout(() => {
+                                messageElement.style.backgroundColor = '';
+                            }, 2000);
+                        }
+                    }, 200);
+                });
             } else {
                 // Same location, just scroll to the message
                 const messageElement = document.querySelector(`[data-id="${messageId}"]`);
