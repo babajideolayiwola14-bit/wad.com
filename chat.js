@@ -91,6 +91,14 @@
         });
     }
 
+    // Request notification permission
+    if ('Notification' in window && Notification.permission === 'default') {
+        Notification.requestPermission();
+    }
+
+    // Store user's interacted message IDs for notification checking
+    let userInteractedMessageIds = new Set();
+
     async function fetchProfile() {
         const currentToken = localStorage.getItem('token');
         if (!currentToken) {
@@ -198,8 +206,16 @@
             profileInteractions.innerHTML = '';
             if (!data.interactions || data.interactions.length === 0) {
                 profileInteractions.textContent = 'No interactions yet.';
+                userInteractedMessageIds.clear();
                 return;
             }
+            
+            // Update interacted message IDs for notification checking
+            userInteractedMessageIds.clear();
+            data.interactions.forEach(item => {
+                userInteractedMessageIds.add(item.message_id);
+            });
+            
             // Store all messages for filtering
             const allFeedMessages = JSON.parse(sessionStorage.getItem('feedMessages') || '[]');
             window.allMessages = data.interactions.map(item => ({ id: item.message_id, message: item.message }));
@@ -693,6 +709,24 @@
 
     // Listen for incoming messages
     socket.on('chat message', (data) => {
+        // If this is user's own message, automatically track it
+        if (data.username === currentUsername && !data.parentId) {
+            // Auto-record as "sent" interaction
+            recordInteraction(data.id, 'sent');
+        }
+        
+        // Check if this is a reply to user's interacted message
+        if (data.parentId && userInteractedMessageIds.has(data.parentId) && data.username !== currentUsername) {
+            // Show notification
+            if ('Notification' in window && Notification.permission === 'granted') {
+                new Notification('New Reply', {
+                    body: `${data.username} replied to your message`,
+                    icon: '/icon.png', // Add icon if you have one
+                    tag: `reply-${data.id}`
+                });
+            }
+        }
+        
         // On reply page, only show messages related to the conversation
         if (isReplyPage) {
             const isFromCurrent = data.username === currentUser;

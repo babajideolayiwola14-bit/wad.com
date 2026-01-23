@@ -61,7 +61,6 @@
     <div class="chat-container" id="chat-container" style="display: none;">
         <div class="chat-shell">
             <div id="profile-overlay" class="profile-overlay"></div>
-            <button id="toggle-profile" class="toggle-profile-btn" style="display: none;">☰ Profile</button>
             <aside class="profile-panel" id="profile-panel">
                 <div class="profile-header">
                     <div id="profile-username" class="profile-username"></div>
@@ -71,7 +70,10 @@
                 <div id="profile-interactions" class="profile-interactions"></div>
             </aside>
             <div class="chat-main">
-                <h2 id="chat-header">Welcome to Web Chat</h2>
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
+                    <h2 id="chat-header" style="margin: 0;">Welcome to Web Chat</h2>
+                    <button id="toggle-profile" class="toggle-profile-btn" style="display: none;">☰ Profile</button>
+                </div>
                 <div id="search-wrapper" style="margin-bottom: 10px;">
                     <input type="text" id="search-input" placeholder="Search messages in your location..." style="padding: 8px; border: 1px solid #ccc; border-radius: 4px; width: calc(100% - 90px); font-size: 14px;">
                     <button id="search-btn" style="padding: 8px 12px; background-color: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; margin-left: 5px;">Search</button>
