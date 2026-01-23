@@ -959,8 +959,10 @@ io.use((socket, next) => {
 io.on('connection', (socket) => {
   console.log('User connected:', socket.user.username);
 
-  // Join location-based room (state_lga)
-  const locationRoom = `${socket.user.state}_${socket.user.lga}`;
+  // Join location-based room (state_lga) - normalize by trimming
+  const normalizedState = (socket.user.state || '').trim();
+  const normalizedLga = (socket.user.lga || '').trim();
+  const locationRoom = `${normalizedState}_${normalizedLga}`;
   socket.join(locationRoom);
   console.log('User joined room:', locationRoom);
 
@@ -1012,6 +1014,7 @@ io.on('connection', (socket) => {
       );
       const messageId = USE_POSTGRES ? result.rows[0].id : result.lastID;
       console.log('Message saved with ID:', messageId);
+      console.log('Broadcasting to room:', messageRoom, 'Message:', message.substring(0, 50));
       
       // Record interaction for replies
       if (parentId) {
