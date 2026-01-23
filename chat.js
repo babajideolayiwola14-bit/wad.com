@@ -237,13 +237,13 @@
                 locationHeader.className = 'location-group-header';
                 locationHeader.style.cssText = 'padding:10px; background:#f0f0f0; cursor:pointer; font-weight:bold; border-radius:4px; margin-bottom:5px; display:flex; justify-content:space-between; align-items:center;';
                 locationHeader.innerHTML = `
-                    <span><span class="toggle-icon">▼</span> ${location.state}, ${location.lga}</span>
+                    <span><span class="toggle-icon">▶</span> ${location.state}, ${location.lga}</span>
                 `;
                 
                 // Create container for interactions in this location
                 const interactionsContainer = document.createElement('div');
                 interactionsContainer.className = 'location-interactions';
-                interactionsContainer.style.cssText = 'margin-bottom:15px; padding-left:10px;';
+                interactionsContainer.style.cssText = 'margin-bottom:15px; padding-left:10px; display:none;';
                 
                 // Add interactions to container (limit to 10 initially)
                 const displayLimit = 10;
