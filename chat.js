@@ -194,9 +194,11 @@
                 const div = document.createElement('div');
                 div.className = 'profile-interaction-item';
                 div.dataset.messageId = item.message_id;
+                div.dataset.state = item.state;
+                div.dataset.lga = item.lga;
                 div.innerHTML = `
                     <div class="profile-interaction-meta">${item.type} • ${new Date(item.created_at).toLocaleString()}</div>
-                    <div class="profile-interaction-text">${item.message}</div>
+                    <div class="profile-interaction-text">${item.message} <small>(${item.state}, ${item.lga})</small></div>
                 `;
                 profileInteractions.appendChild(div);
             });
@@ -207,22 +209,61 @@
 
     // Event delegation for profile interactions - single listener
     if (profileInteractions) {
-        profileInteractions.addEventListener('click', (event) => {
+        profileInteractions.addEventListener('click', async (event) => {
             const item = event.target.closest('.profile-interaction-item');
             if (!item) return;
             
             const messageId = Number(item.dataset.messageId);
+            const messageState = item.dataset.state;
+            const messageLga = item.dataset.lga;
+            
             if (!messageId) return;
             
-            // Scroll to the message in the feed
-            const messageElement = document.querySelector(`[data-id="${messageId}"]`);
-            if (messageElement) {
-                messageElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                // Highlight the message briefly
-                messageElement.style.backgroundColor = '#fff3cd';
+            // Get current user's location
+            const user = JSON.parse(localStorage.getItem('user') || '{}');
+            const currentState = user.state;
+            const currentLga = user.lga;
+            
+            // Check if message is from a different location
+            if (messageState !== currentState || messageLga !== currentLga) {
+                // Switch to the message's location
+                console.log(`Switching from ${currentState}/${currentLga} to ${messageState}/${messageLga}`);
+                
+                // Update user location
+                user.state = messageState;
+                user.lga = messageLga;
+                localStorage.setItem('user', JSON.stringify(user));
+                
+                // Update header if it exists
+                const chatHeader = document.getElementById('chat-header');
+                if (chatHeader) {
+                    chatHeader.textContent = `${messageState}, ${messageLga}`;
+                }
+                
+                // Fetch feed for new location
+                await fetchFeed();
+                
+                // Wait a bit for rendering, then scroll
                 setTimeout(() => {
-                    messageElement.style.backgroundColor = '';
-                }, 2000);
+                    const messageElement = document.querySelector(`[data-id="${messageId}"]`);
+                    if (messageElement) {
+                        messageElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        messageElement.style.backgroundColor = '#fff3cd';
+                        setTimeout(() => {
+                            messageElement.style.backgroundColor = '';
+                        }, 2000);
+                    }
+                }, 200);
+            } else {
+                // Same location, just scroll to the message
+                const messageElement = document.querySelector(`[data-id="${messageId}"]`);
+                if (messageElement) {
+                    messageElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    messageElement.style.backgroundColor = '#fff3cd';
+                    setTimeout(() => {
+                        messageElement.style.backgroundColor = '';
+                    }, 2000);
+                }
             }
         });
     }
