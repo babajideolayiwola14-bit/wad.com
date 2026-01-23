@@ -846,8 +846,8 @@ app.get('/admin/db/interactions', verifyHttpToken, async (req, res) => {
   }
 });
 
-// Admin: Remove duplicate interactions
-app.post('/admin/remove-duplicate-interactions', verifyHttpToken, async (req, res) => {
+// Temporary public endpoint: Remove duplicate interactions (ONE-TIME USE)
+app.post('/cleanup-duplicates-temp', async (req, res) => {
   try {
     // First, get all duplicates
     const duplicates = await dbAll(`
