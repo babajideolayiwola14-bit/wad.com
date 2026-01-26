@@ -390,8 +390,13 @@
                 socket.auth.token = currentToken; // Refresh token
                 socket.connect();
                 
-                // Wait for reconnection
-                socket.once('connect', async () => {
+                // Wait for reconnection with timeout fallback
+                let reconnectHandled = false;
+                
+                const handleReconnect = async () => {
+                    if (reconnectHandled) return;
+                    reconnectHandled = true;
+                    
                     console.log('Reconnected to new location');
                     await fetchFeed();
                     
@@ -415,7 +420,17 @@
                             }, 2000);
                         }
                     }, 200);
-                });
+                };
+                
+                socket.once('connect', handleReconnect);
+                
+                // Fallback if socket doesn't reconnect within 2 seconds
+                setTimeout(() => {
+                    if (!reconnectHandled) {
+                        console.log('Socket reconnect timeout, loading feed anyway');
+                        handleReconnect();
+                    }
+                }, 2000);
             } else {
                 // Same location, fetch feed to ensure messages are loaded
                 await fetchFeed();
