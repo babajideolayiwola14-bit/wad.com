@@ -119,19 +119,32 @@
         }
         
         try {
+            console.log('Fetching profile with token length:', currentToken.length);
             const res = await fetch('/profile', {
                 headers: { 'Authorization': `Bearer ${currentToken}` }
             });
             
             if (!res.ok) {
-                console.error('Profile fetch failed:', res.status);
+                console.error('Profile fetch failed with status:', res.status);
+                const errorData = await res.json().catch(() => ({}));
+                console.error('Error details:', errorData);
+                
                 if (res.status === 401) {
-                    console.error('Token invalid for profile fetch');
+                    console.error('Token invalid for profile fetch - forcing re-login');
+                    alert('Authentication failed. Please login again.');
+                    // Redirect to login
+                    const chatContainer = document.getElementById('chat-container');
+                    const loginContainer = document.getElementById('login-container');
+                    if (chatContainer) chatContainer.style.display = 'none';
+                    if (loginContainer) loginContainer.style.display = 'block';
+                    localStorage.removeItem('token');
+                    localStorage.removeItem('user');
                 }
                 return;
             }
             
             const data = await res.json();
+            console.log('Profile fetched successfully');
             renderProfile(data);
         } catch (err) {
             console.error('Failed to fetch profile', err);
