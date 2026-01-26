@@ -908,16 +908,25 @@ app.post('/admin/remove-duplicate-interactions', verifyHttpToken, async (req, re
 // Admin: Remove duplicate messages
 app.post('/admin/remove-duplicate-messages', verifyHttpToken, async (req, res) => {
   try {
-    // Find duplicate messages (same username, message text, state, lga, created within 5 seconds)
-    const duplicates = await dbAll(`
-      SELECT username, message, state, lga, 
-             MIN(id) as keep_id,
-             GROUP_CONCAT(id) as all_ids,
-             COUNT(*) as count
-      FROM messages
-      GROUP BY username, message, state, lga
-      HAVING COUNT(*) > 1
-    `);
+    // Find duplicate messages (same username, message text, state, lga)
+    const duplicates = USE_POSTGRES
+      ? await dbAll(`
+          SELECT username, message, state, lga, 
+                 MIN(id) as keep_id,
+                 COUNT(*) as count
+          FROM messages
+          GROUP BY username, message, state, lga
+          HAVING COUNT(*) > 1
+        `)
+      : await dbAll(`
+          SELECT username, message, state, lga, 
+                 MIN(id) as keep_id,
+                 GROUP_CONCAT(id) as all_ids,
+                 COUNT(*) as count
+          FROM messages
+          GROUP BY username, message, state, lga
+          HAVING COUNT(*) > 1
+        `);
     
     if (duplicates.length === 0) {
       return res.json({ message: 'No duplicate messages found', removed: 0 });
