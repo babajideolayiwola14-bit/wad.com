@@ -317,9 +317,13 @@
                 }
                 
                 // Toggle collapse/expand on header click
-                locationHeader.addEventListener('click', () => {
+                locationHeader.addEventListener('click', (e) => {
+                    // Prevent if clicking on a child element like interaction items
+                    if (e.target !== locationHeader && !e.target.closest('.toggle-icon') && e.target.tagName !== 'SPAN') {
+                        return;
+                    }
                     const toggleIcon = locationHeader.querySelector('.toggle-icon');
-                    if (interactionsContainer.style.display === 'none') {
+                    if (interactionsContainer.style.display === 'none' || !interactionsContainer.style.display) {
                         interactionsContainer.style.display = 'block';
                         toggleIcon.textContent = '▼';
                     } else {
@@ -400,24 +404,18 @@
                     console.log('Reconnected to new location');
                     await fetchFeed();
                     
-                    // Filter to show only the clicked message
-                    const allMessages = Array.from(messagesDiv.children);
-                    allMessages.forEach(msg => {
-                        const msgId = Number(msg.dataset.id);
-                        if (msgId !== messageId) {
-                            msg.style.display = 'none';
-                        }
-                    });
-                    
-                    // Wait a bit for rendering, then scroll
+                    // Don't filter - show all messages in new location including conversation thread
+                    // Just scroll to and highlight the clicked message
                     setTimeout(() => {
                         const messageElement = document.querySelector(`[data-id="${messageId}"]`);
                         if (messageElement) {
                             messageElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
                             messageElement.style.backgroundColor = '#fff3cd';
+                            messageElement.style.border = '2px solid #ffc107';
                             setTimeout(() => {
                                 messageElement.style.backgroundColor = '';
-                            }, 2000);
+                                messageElement.style.border = '';
+                            }, 3000);
                         }
                     }, 200);
                 };
@@ -435,24 +433,18 @@
                 // Same location, fetch feed to ensure messages are loaded
                 await fetchFeed();
                 
-                // Filter to show only the clicked message
-                const allMessages = Array.from(messagesDiv.children);
-                allMessages.forEach(msg => {
-                    const msgId = Number(msg.dataset.id);
-                    if (msgId !== messageId) {
-                        msg.style.display = 'none';
-                    }
-                });
-                
-                // Scroll to the message
+                // Don't filter - show all messages so user can see full conversation thread
+                // Just scroll to and highlight the clicked message
                 setTimeout(() => {
                     const messageElement = document.querySelector(`[data-id="${messageId}"]`);
                     if (messageElement) {
                         messageElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
                         messageElement.style.backgroundColor = '#fff3cd';
+                        messageElement.style.border = '2px solid #ffc107';
                         setTimeout(() => {
                             messageElement.style.backgroundColor = '';
-                        }, 2000);
+                            messageElement.style.border = '';
+                        }, 3000);
                     }
                 }, 200);
             }
