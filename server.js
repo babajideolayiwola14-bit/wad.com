@@ -705,16 +705,17 @@ app.get('/search', verifyHttpToken, async (req, res) => {
     }
     
     // Search only main messages (parent_id IS NULL) in user's location
+    // Use LOWER() for case-insensitive search
     const messages = await dbAll(
       `SELECT id, username, state, lga, message, parent_id, attachment_url, attachment_type, created_at
        FROM messages
-       WHERE state = ? AND lga = ? AND parent_id IS NULL AND message LIKE ?
+       WHERE state = ? AND lga = ? AND parent_id IS NULL AND LOWER(message) LIKE LOWER(?)
        ORDER BY created_at DESC
        LIMIT 100`,
       [state, lga, `%${query}%`]
     );
 
-    console.log('Search returned', messages.length, 'messages');
+    console.log('Search returned', messages.length, 'messages for query:', query);
     res.json({ messages });
   } catch (err) {
     console.error('Failed to search messages:', err);

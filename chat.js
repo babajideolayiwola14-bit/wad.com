@@ -521,12 +521,19 @@
     async function searchMessages(query) {
         if (!token) return;
         try {
+            console.log('Searching for:', query);
             const res = await fetch(`/search?q=${encodeURIComponent(query)}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
-            if (!res.ok) return;
+            if (!res.ok) {
+                console.error('Search request failed:', res.status);
+                return;
+            }
             const data = await res.json();
-            console.log('Search results:', data.messages.length, 'messages');
+            console.log('Search results:', data.messages.length, 'messages found');
+            if (data.messages.length === 0) {
+                console.log('No messages found for query:', query);
+            }
             renderFeed(data.messages || []);
             
             // Show the View All button after search
