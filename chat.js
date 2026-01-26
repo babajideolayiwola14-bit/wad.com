@@ -11,6 +11,18 @@
 
     // Initialize socket.io with authentication
     const token = localStorage.getItem('token');
+    
+    // Check token persistence on mobile
+    console.log('Token retrieved from localStorage:', token ? 'exists' : 'missing');
+    console.log('Token length:', token ? token.length : 0);
+    
+    // Verify token is being stored correctly
+    if (token) {
+        // Re-save to ensure persistence on mobile browsers
+        localStorage.setItem('token', token);
+        console.log('Token re-saved for mobile persistence');
+    }
+    
     const socket = io({
         auth: {
             token: token
@@ -316,21 +328,25 @@
                     interactionsContainer.appendChild(showMoreBtn);
                 }
                 
-                // Toggle collapse/expand on header click
-                locationHeader.addEventListener('click', (e) => {
-                    // Prevent if clicking on a child element like interaction items
-                    if (e.target !== locationHeader && !e.target.closest('.toggle-icon') && e.target.tagName !== 'SPAN') {
-                        return;
-                    }
+                // Toggle collapse/expand on header click/touch
+                const toggleDropdown = (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    console.log('Toggle clicked for:', location.state, location.lga);
                     const toggleIcon = locationHeader.querySelector('.toggle-icon');
                     if (interactionsContainer.style.display === 'none' || !interactionsContainer.style.display) {
                         interactionsContainer.style.display = 'block';
                         toggleIcon.textContent = '▼';
+                        console.log('Expanded:', location.state, location.lga);
                     } else {
                         interactionsContainer.style.display = 'none';
                         toggleIcon.textContent = '▶';
+                        console.log('Collapsed:', location.state, location.lga);
                     }
-                });
+                };
+                
+                locationHeader.addEventListener('click', toggleDropdown);
+                locationHeader.addEventListener('touchend', toggleDropdown);
                 
                 profileInteractions.appendChild(locationHeader);
                 profileInteractions.appendChild(interactionsContainer);
@@ -346,11 +362,24 @@
             const item = event.target.closest('.profile-interaction-item');
             if (!item) return;
             
+            console.log('Interaction item clicked');
+            
             const messageId = Number(item.dataset.messageId);
             const messageState = item.dataset.state;
             const messageLga = item.dataset.lga;
             
+            console.log('Message ID:', messageId, 'State:', messageState, 'LGA:', messageLga);
+            
             if (!messageId) return;
+            
+            // Close profile panel on mobile so user can see the chatbox
+            if (profilePanel && profilePanel.classList.contains('show')) {
+                profilePanel.classList.remove('show');
+                if (profileOverlay) {
+                    profileOverlay.style.display = 'none';
+                }
+                console.log('Profile panel closed');
+            }
             
             // Get current user's location
             const user = JSON.parse(localStorage.getItem('user') || '{}');
@@ -431,13 +460,17 @@
                 }, 2000);
             } else {
                 // Same location, fetch feed to ensure messages are loaded
+                console.log('Same location, fetching feed...');
                 await fetchFeed();
+                console.log('Feed fetched, looking for message:', messageId);
                 
                 // Don't filter - show all messages so user can see full conversation thread
                 // Just scroll to and highlight the clicked message
                 setTimeout(() => {
                     const messageElement = document.querySelector(`[data-id="${messageId}"]`);
+                    console.log('Message element found:', !!messageElement);
                     if (messageElement) {
+                        console.log('Scrolling to message:', messageId);
                         messageElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
                         messageElement.style.backgroundColor = '#fff3cd';
                         messageElement.style.border = '2px solid #ffc107';
@@ -445,8 +478,26 @@
                             messageElement.style.backgroundColor = '';
                             messageElement.style.border = '';
                         }, 3000);
+                    } else {
+                        console.error('Message not found in DOM:', messageId);
+                        // Try again after a longer delay
+                        setTimeout(() => {
+                            const retryElement = document.querySelector(`[data-id="${messageId}"]`);
+                            if (retryElement) {
+                                console.log('Found on retry, scrolling to message:', messageId);
+                                retryElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                retryElement.style.backgroundColor = '#fff3cd';
+                                retryElement.style.border = '2px solid #ffc107';
+                                setTimeout(() => {
+                                    retryElement.style.backgroundColor = '';
+                                    retryElement.style.border = '';
+                                }, 3000);
+                            } else {
+                                console.error('Message still not found after retry:', messageId);
+                            }
+                        }, 1000);
                     }
-                }, 200);
+                }, 500);
             }
         });
     }
@@ -982,15 +1033,36 @@
     }
     socket.on('connect_error', (error) => {
         console.error('Connection error:', error.message);
-        alert('Authentication failed. Please login again.');
-        // Hide chat, show login
-        const chatContainer = document.getElementById('chat-container');
-        const loginContainer = document.getElementById('login-container');
-        if (chatContainer) chatContainer.style.display = 'none';
-        if (loginContainer) loginContainer.style.display = 'block';
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        localStorage.removeItem('state');
-        localStorage.removeItem('lga');
+        console.log('Token still in localStorage:', !!localStorage.getItem('token'));
+        console.log('Attempting to diagnose auth issue...');
+        
+        // Check if token exists
+        const currentToken = localStorage.getItem('token');
+        if (!currentToken) {
+            console.error('No token found in localStorage');
+            alert('Authentication failed. Please login again.');
+            // Hide chat, show login
+            const chatContainer = document.getElementById('chat-container');
+            const loginContainer = document.getElementById('login-container');
+            if (chatContainer) chatContainer.style.display = 'none';
+            if (loginContainer) loginContainer.style.display = 'block';
+            localStorage.removeItem('user');
+            localStorage.removeItem('state');
+            localStorage.removeItem('lga');
+        } else {
+            console.error('Token exists but connection failed. Error:', error.message);
+            // Don't immediately log out - might be network issue
+            if (error.message.includes('authentication') || error.message.includes('jwt')) {
+                alert('Authentication expired. Please login again.');
+                const chatContainer = document.getElementById('chat-container');
+                const loginContainer = document.getElementById('login-container');
+                if (chatContainer) chatContainer.style.display = 'none';
+                if (loginContainer) loginContainer.style.display = 'block';
+                localStorage.removeItem('token');
+                localStorage.removeItem('user');
+                localStorage.removeItem('state');
+                localStorage.removeItem('lga');
+            }
+        }
     });
 })();
