@@ -905,6 +905,48 @@ app.post('/admin/remove-duplicate-interactions', verifyHttpToken, async (req, re
   }
 });
 
+// Admin: Remove duplicate messages
+app.post('/admin/remove-duplicate-messages', verifyHttpToken, async (req, res) => {
+  try {
+    // Find duplicate messages (same username, message text, state, lga, created within 5 seconds)
+    const duplicates = await dbAll(`
+      SELECT username, message, state, lga, 
+             MIN(id) as keep_id,
+             GROUP_CONCAT(id) as all_ids,
+             COUNT(*) as count
+      FROM messages
+      GROUP BY username, message, state, lga
+      HAVING COUNT(*) > 1
+    `);
+    
+    if (duplicates.length === 0) {
+      return res.json({ message: 'No duplicate messages found', removed: 0 });
+    }
+    
+    let totalRemoved = 0;
+    for (const dup of duplicates) {
+      // Delete all duplicates except the first one (lowest id)
+      const deleteQuery = USE_POSTGRES
+        ? `DELETE FROM messages WHERE username = $1 AND message = $2 AND state = $3 AND lga = $4 AND id != $5`
+        : `DELETE FROM messages WHERE username = ? AND message = ? AND state = ? AND lga = ? AND id != ?`;
+      
+      const params = [dup.username, dup.message, dup.state, dup.lga, dup.keep_id];
+      await dbRun(deleteQuery, params);
+      totalRemoved += (dup.count - 1);
+      console.log(`Removed ${dup.count - 1} duplicates for user ${dup.username}, keeping id ${dup.keep_id}`);
+    }
+    
+    res.json({ 
+      message: 'Duplicate messages removed successfully', 
+      duplicateGroups: duplicates.length,
+      removed: totalRemoved 
+    });
+  } catch (err) {
+    console.error('Failed to remove duplicate messages:', err);
+    res.status(500).json({ message: 'Failed to remove duplicate messages', error: err.message });
+  }
+});
+
 // Temporary: Trim all location data in database
 app.post('/admin/normalize-locations', async (req, res) => {
   try {
