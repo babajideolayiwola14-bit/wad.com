@@ -1031,7 +1031,8 @@ io.on('connection', (socket) => {
     if (!parentId) {
       const validation = isActionStatement(message);
       if (!validation.valid) {
-        console.log('Message rejected for', username, ':', validation.reason);
+        console.log('Message rejected for', username, 'in', state, lga, ':', validation.reason);
+        console.log('Rejected message text:', message);
         socket.emit('message rejected', { 
           reason: validation.reason,
           message: message 
