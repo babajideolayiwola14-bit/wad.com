@@ -311,19 +311,26 @@ function isActionStatement(message) {
 function verifyHttpToken(req, res, next) {
   const auth = req.headers.authorization;
   if (!auth) {
-    console.log('No authorization header');
+    console.log('No authorization header in request to:', req.path);
     return res.status(401).json({ message: 'No token provided' });
   }
   const token = auth.replace('Bearer ', '');
-  console.log('Verifying HTTP token, first 20 chars:', token.substring(0, 20));
+  console.log('Verifying HTTP token for:', req.path, '- first 20 chars:', token.substring(0, 20));
+  console.log('Token length:', token.length);
   try {
     const decoded = jwt.verify(token, SECRET_KEY);
-    console.log('Token verified for user:', decoded.username);
+    console.log('Token verified successfully for user:', decoded.username, 'exp:', new Date(decoded.exp * 1000).toISOString());
     req.user = decoded;
     next();
   } catch (err) {
-    console.error('Token verification failed:', err.message);
-    return res.status(401).json({ message: 'Invalid token' });
+    console.error('Token verification failed for:', req.path);
+    console.error('Error type:', err.name);
+    console.error('Error message:', err.message);
+    if (err.name === 'TokenExpiredError') {
+      console.error('Token expired at:', new Date(err.expiredAt).toISOString());
+      return res.status(401).json({ message: 'Token expired', expired: true });
+    }
+    return res.status(401).json({ message: 'Invalid token', error: err.name });
   }
 }
 
@@ -971,6 +978,24 @@ app.post('/admin/query', verifyHttpToken, async (req, res) => {
   } catch (err) {
     console.error('Query execution failed:', err);
     res.status(500).json({ message: err.message || 'Query failed' });
+  }
+});
+
+// Quick check endpoint for specific user messages
+app.get('/admin/check-user/:username', verifyHttpToken, async (req, res) => {
+  try {
+    const messages = await dbAll(
+      `SELECT id, username, state, lga, message, created_at 
+       FROM messages 
+       WHERE username = ? 
+       ORDER BY created_at DESC 
+       LIMIT 10`,
+      [req.params.username]
+    );
+    res.json({ messages, count: messages.length });
+  } catch (err) {
+    console.error('Failed to check user messages:', err);
+    res.status(500).json({ message: 'Failed to check messages' });
   }
 });
 
