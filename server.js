@@ -1175,7 +1175,7 @@ io.on('connection', (socket) => {
 
     // Persist to database first
     try {
-      console.log('Saving message from:', username, 'State:', state, 'LGA:', lga);
+      console.log('Saving message from:', username, 'State:', state, 'LGA:', lga, parentId ? `(Reply to: ${parentId})` : '(Main message)');
       const result = await dbRun(
         USE_POSTGRES
           ? 'INSERT INTO messages (username, state, lga, message, parent_id, attachment_url, attachment_type) VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id'
@@ -1183,8 +1183,8 @@ io.on('connection', (socket) => {
         [username, state, lga, message, parentId, attachmentUrl, attachmentType]
       );
       const messageId = USE_POSTGRES ? result.rows[0].id : result.lastID;
-      console.log('Message saved with ID:', messageId);
-      console.log('Broadcasting to room:', messageRoom, 'Message:', message.substring(0, 50));
+      console.log('Message saved with ID:', messageId, parentId ? '(Reply)' : '(Main)');
+      console.log('Broadcasting to room:', messageRoom, 'Users in room:', io.sockets.adapter.rooms.get(messageRoom)?.size || 0);
       
       // Record interaction for replies
       if (parentId) {
