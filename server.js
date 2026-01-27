@@ -538,6 +538,12 @@ app.post('/login', authLimiter, async (req, res) => {
       console.warn(`Failed login attempt for user: ${username}`);
       return res.status(401).json({ message: 'Invalid username or password' });
     }
+
+    // Check if user is banned
+    const dbUser = await dbAll('SELECT banned FROM users WHERE username = ? LIMIT 1', [username]);
+    if (dbUser.length > 0 && dbUser[0].banned === 1) {
+      return res.status(403).json({ message: 'Your account has been banned. Contact admin.' });
+    }
   }
 
   const token = jwt.sign(
@@ -1091,6 +1097,139 @@ app.get('/admin/check-user/:username', verifyHttpToken, async (req, res) => {
   } catch (err) {
     console.error('Failed to check user messages:', err);
     res.status(500).json({ message: 'Failed to check messages' });
+  }
+});
+
+// Admin: Ban user
+app.post('/admin/ban-user', verifyHttpToken, async (req, res) => {
+  try {
+    const { username } = req.body;
+    if (!username) {
+      return res.status(400).json({ message: 'Username is required' });
+    }
+
+    // Add banned column if it doesn't exist (migration)
+    try {
+      await dbRun('ALTER TABLE users ADD COLUMN banned INTEGER DEFAULT 0');
+    } catch (err) {
+      // Column might already exist
+    }
+
+    await dbRun('UPDATE users SET banned = 1 WHERE username = ?', [username]);
+    res.json({ message: `User ${username} has been banned` });
+  } catch (err) {
+    console.error('Failed to ban user:', err);
+    res.status(500).json({ message: 'Failed to ban user', error: err.message });
+  }
+});
+
+// Admin: Unban user
+app.post('/admin/unban-user', verifyHttpToken, async (req, res) => {
+  try {
+    const { username } = req.body;
+    if (!username) {
+      return res.status(400).json({ message: 'Username is required' });
+    }
+
+    await dbRun('UPDATE users SET banned = 0 WHERE username = ?', [username]);
+    res.json({ message: `User ${username} has been unbanned` });
+  } catch (err) {
+    console.error('Failed to unban user:', err);
+    res.status(500).json({ message: 'Failed to unban user', error: err.message });
+  }
+});
+
+// Admin: Delete user and all their data
+app.delete('/admin/delete-user/:username', verifyHttpToken, async (req, res) => {
+  try {
+    const { username } = req.params;
+
+    // Delete interactions (CASCADE should handle this, but manual for safety)
+    await dbRun('DELETE FROM interactions WHERE username = ?', [username]);
+    
+    // Delete messages
+    await dbRun('DELETE FROM messages WHERE username = ?', [username]);
+    
+    // Delete user
+    await dbRun('DELETE FROM users WHERE username = ?', [username]);
+    
+    res.json({ message: `User ${username} and all their data has been deleted` });
+  } catch (err) {
+    console.error('Failed to delete user:', err);
+    res.status(500).json({ message: 'Failed to delete user', error: err.message });
+  }
+});
+
+// Admin: Bulk delete messages
+app.post('/admin/bulk-delete-messages', verifyHttpToken, async (req, res) => {
+  try {
+    const { messageIds } = req.body;
+    if (!Array.isArray(messageIds) || messageIds.length === 0) {
+      return res.status(400).json({ message: 'Message IDs array is required' });
+    }
+
+    const placeholders = messageIds.map(() => '?').join(',');
+    await dbRun(`DELETE FROM messages WHERE id IN (${placeholders})`, messageIds);
+    
+    res.json({ message: `Deleted ${messageIds.length} messages`, count: messageIds.length });
+  } catch (err) {
+    console.error('Failed to bulk delete messages:', err);
+    res.status(500).json({ message: 'Failed to bulk delete messages', error: err.message });
+  }
+});
+
+// Admin: Get analytics
+app.get('/admin/analytics', verifyHttpToken, async (req, res) => {
+  try {
+    const [users, messages, interactions] = await Promise.all([
+      dbAll('SELECT COUNT(*) as count FROM users'),
+      dbAll('SELECT COUNT(*) as count FROM messages'),
+      dbAll('SELECT COUNT(*) as count FROM interactions')
+    ]);
+
+    const [messagesByDay, topUsers, topLocations, interactionsByType] = await Promise.all([
+      dbAll(`
+        SELECT DATE(created_at) as date, COUNT(*) as count 
+        FROM messages 
+        GROUP BY DATE(created_at) 
+        ORDER BY DATE(created_at) DESC 
+        LIMIT 30
+      `),
+      dbAll(`
+        SELECT username, COUNT(*) as message_count 
+        FROM messages 
+        GROUP BY username 
+        ORDER BY message_count DESC 
+        LIMIT 10
+      `),
+      dbAll(`
+        SELECT state, lga, COUNT(*) as count 
+        FROM messages 
+        GROUP BY state, lga 
+        ORDER BY count DESC 
+        LIMIT 10
+      `),
+      dbAll(`
+        SELECT type, COUNT(*) as count 
+        FROM interactions 
+        GROUP BY type
+      `)
+    ]);
+
+    res.json({
+      totals: {
+        users: users[0].count,
+        messages: messages[0].count,
+        interactions: interactions[0].count
+      },
+      messagesByDay,
+      topUsers,
+      topLocations,
+      interactionsByType
+    });
+  } catch (err) {
+    console.error('Failed to get analytics:', err);
+    res.status(500).json({ message: 'Failed to get analytics', error: err.message });
   }
 });
 
