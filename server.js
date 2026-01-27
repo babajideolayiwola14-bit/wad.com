@@ -956,6 +956,50 @@ app.post('/admin/remove-duplicate-messages', verifyHttpToken, async (req, res) =
   }
 });
 
+// Admin: Auto-track all existing user messages as 'sent' interactions
+app.post('/admin/auto-track-sent-messages', verifyHttpToken, async (req, res) => {
+  try {
+    // Get all main messages (not replies) from all users
+    const messages = await dbAll(`
+      SELECT id, username 
+      FROM messages 
+      WHERE parent_id IS NULL
+    `);
+    
+    let added = 0;
+    let skipped = 0;
+    
+    for (const msg of messages) {
+      // Check if interaction already exists
+      const existing = await dbAll(
+        `SELECT id FROM interactions WHERE username = ? AND message_id = ? AND type = 'sent'`,
+        [msg.username, msg.id]
+      );
+      
+      if (existing.length === 0) {
+        // Add the interaction
+        await dbRun(
+          `INSERT INTO interactions (username, message_id, type) VALUES (?, ?, 'sent')`,
+          [msg.username, msg.id]
+        );
+        added++;
+      } else {
+        skipped++;
+      }
+    }
+    
+    res.json({ 
+      message: 'Auto-tracking completed', 
+      totalMessages: messages.length,
+      added,
+      skipped
+    });
+  } catch (err) {
+    console.error('Failed to auto-track messages:', err);
+    res.status(500).json({ message: 'Failed to auto-track messages', error: err.message });
+  }
+});
+
 // Temporary: Trim all location data in database
 app.post('/admin/normalize-locations', async (req, res) => {
   try {
