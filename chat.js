@@ -235,15 +235,24 @@
                 return;
             }
             
+            // Filter out replies - only show main messages in My Repo
+            const mainMessageInteractions = data.interactions.filter(item => !item.parent_id);
+            
+            if (mainMessageInteractions.length === 0) {
+                profileInteractions.textContent = 'No interactions yet.';
+                userInteractedMessageIds.clear();
+                return;
+            }
+            
             // Update interacted message IDs for notification checking
             userInteractedMessageIds.clear();
-            data.interactions.forEach(item => {
+            mainMessageInteractions.forEach(item => {
                 userInteractedMessageIds.add(item.message_id);
             });
             
             // Store all messages for filtering
             const allFeedMessages = JSON.parse(sessionStorage.getItem('feedMessages') || '[]');
-            window.allMessages = data.interactions.map(item => ({ id: item.message_id, message: item.message }));
+            window.allMessages = mainMessageInteractions.map(item => ({ id: item.message_id, message: item.message }));
             
             // Create View All button once
             let viewAllBtn = document.getElementById('view-all-btn');
@@ -264,7 +273,7 @@
             
             // Group interactions by location
             const locationGroups = {};
-            data.interactions.forEach(item => {
+            mainMessageInteractions.forEach(item => {
                 const locationKey = `${item.state}|${item.lga}`;
                 if (!locationGroups[locationKey]) {
                     locationGroups[locationKey] = {
