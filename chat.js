@@ -715,7 +715,7 @@
                 // Update reply count for this message
                 const nestedReplies = replyItem.querySelector(':scope > .replies');
                 if (nestedReplies && nestedReplies.children.length > 0) {
-                    const replyCount = replyItem.querySelector(':scope > .message-text > .reply-count');
+                    const replyCount = replyItem.querySelector('.reply-count');
                     if (replyCount) {
                         replyCount.innerHTML = `<span style="font-size:16px;margin-right:4px;">\uD83D\uDCAC</span>${nestedReplies.children.length}`;
                         replyCount.style.display = 'inline';
@@ -732,7 +732,7 @@
             // Update reply count for top-level messages
             const repliesDiv = item.querySelector(':scope > .replies');
             if (repliesDiv && repliesDiv.children.length > 0) {
-                const replyCount = item.querySelector(':scope > .message-text > .reply-count');
+                const replyCount = item.querySelector('.reply-count');
                 if (replyCount) {
                     replyCount.innerHTML = `<span style="font-size:16px;margin-right:4px;">\uD83D\uDCAC</span>${repliesDiv.children.length}`;
                     replyCount.style.display = 'inline';
@@ -892,7 +892,7 @@
                 repliesDiv.appendChild(replyItem);
                 // Keep replies collapsed - don't auto-show
                 // Update count
-                const replyCount = parentElement.querySelector(':scope > .message-text > .reply-count');
+                const replyCount = parentElement.querySelector('.reply-count');
                 const currentCount = repliesDiv.children.length;
                 if (replyCount) {
                     replyCount.innerHTML = `<span style="font-size:16px;margin-right:4px;">\uD83D\uDCAC</span>${currentCount}`;
@@ -921,7 +921,7 @@
                 item.remove();
                 if (parent) {
                     const repliesDiv = parent.querySelector(':scope > .replies');
-                    const replyCount = parent.querySelector(':scope > .message-text > .reply-count');
+                    const replyCount = parent.querySelector('.reply-count');
                     if (repliesDiv && replyCount) {
                         const currentCount = repliesDiv.children.length;
                         if (currentCount > 0) {
