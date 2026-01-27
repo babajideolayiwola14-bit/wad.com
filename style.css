@@ -403,7 +403,7 @@ button[type="submit"]:hover {
 .message-actions {
     display: flex;
     gap: 5px;
-    margin-left: 10px;
+    flex-shrink: 0;
 }
 
 .highlight-flash {

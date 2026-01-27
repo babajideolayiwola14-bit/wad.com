@@ -656,9 +656,11 @@
             const own = msg.username === currentUsername;
             const actionsHtml = `<button class="reply-btn" data-username="${msg.username}" title="Reply">\uD83D\uDCAC</button> <button class="share-btn" data-message="${msg.message}" data-id="${msg.id}" title="Share">\u2197</button>${own ? ` <button class="delete-btn" data-id="${msg.id}" title="Delete">🗑️</button>` : ''}`;
             messageElement.innerHTML = `
-                <div class="message-text"><strong>${msg.username}:</strong> ${msg.message} <small>(${new Date(msg.created_at).toLocaleTimeString()})</small> <span class="reply-count" style="display:none"></span></div>
+                <div style="display: flex; align-items: center; width: 100%; gap: 8px;">
+                    <div class="message-text"><strong>${msg.username}:</strong> ${msg.message} <small>(${new Date(msg.created_at).toLocaleTimeString()})</small> <span class="reply-count" style="display:none"></span></div>
+                    <div class="message-actions">${actionsHtml}</div>
+                </div>
                 ${getAttachmentMarkup(msg.attachment_url, msg.attachment_type)}
-                <div class="message-actions">${actionsHtml}</div>
                 <div class="replies" style="display:none"></div>
             `;
             messagesDiv.appendChild(messageElement);
@@ -698,9 +700,11 @@
                 const own = msg.username === currentUsername;
                 const actionsHtml = `<button class="reply-btn" data-username="${msg.username}" title="Reply">\uD83D\uDCAC</button> <button class="share-btn" data-message="${cleanMessage}" data-id="${msg.id}" title="Share">\u2197</button>${own ? ` <button class="delete-btn" data-id="${msg.id}" title="Delete">🗑️</button>` : ''}`;
                 replyItem.innerHTML = `
-                    <div class="message-text"><strong>${msg.username}:</strong> ${cleanMessage} <small>(${new Date(msg.created_at).toLocaleTimeString()})</small> <span class="reply-count" style="display:none"></span></div>
+                    <div style="display: flex; align-items: center; width: 100%; gap: 8px;">
+                        <div class="message-text"><strong>${msg.username}:</strong> ${cleanMessage} <small>(${new Date(msg.created_at).toLocaleTimeString()})</small> <span class="reply-count" style="display:none"></span></div>
+                        <div class="message-actions">${actionsHtml}</div>
+                    </div>
                     ${getAttachmentMarkup(msg.attachment_url, msg.attachment_type)}
-                    <div class="message-actions">${actionsHtml}</div>
                     <div class="replies" style="display:none"></div>
                 `;
                 repliesDiv.appendChild(replyItem);
@@ -858,9 +862,11 @@
         const own = data.username === currentUsername;
         const actionsHtml = `<button class="reply-btn" data-username="${data.username}" title="Reply">\uD83D\uDCAC</button> <button class="share-btn" data-message="${data.message}" data-id="${data.id}" title="Share">\u2197</button>${own ? ` <button class="delete-btn" data-id="${data.id}" title="Delete">🗑️</button>` : ''}`;
         messageElement.innerHTML = `
-            <div class="message-text"><strong>${data.username}:</strong> ${data.message} <small>(${new Date(data.timestamp).toLocaleTimeString()})</small> <span class="reply-count" style="display:none"></span></div>
+            <div style="display: flex; align-items: center; width: 100%; gap: 8px;">
+                <div class="message-text"><strong>${data.username}:</strong> ${data.message} <small>(${new Date(data.timestamp).toLocaleTimeString()})</small> <span class="reply-count" style="display:none"></span></div>
+                <div class="message-actions">${actionsHtml}</div>
+            </div>
             ${getAttachmentMarkup(data.attachmentUrl, data.attachmentType)}
-            <div class="message-actions">${actionsHtml}</div>
             <div class="replies" style="display:none"></div>
         `;
         
@@ -876,9 +882,11 @@
                 const ownReply = data.username === currentUsername;
                 const replyActions = `<button class="reply-btn" data-username="${data.username}" title="Reply">\uD83D\uDCAC</button> <button class="share-btn" data-message="${cleanMessage}" data-id="${data.id}" title="Share">\u2197</button>${ownReply ? ` <button class="delete-btn" data-id="${data.id}" title="Delete">🗑️</button>` : ''}`;
                 replyItem.innerHTML = `
-                    <div class="message-text"><strong>${data.username}:</strong> ${cleanMessage} <small>(${new Date(data.timestamp).toLocaleTimeString()})</small> <span class="reply-count" style="display:none"></span></div>
+                    <div style="display: flex; align-items: center; width: 100%; gap: 8px;">
+                        <div class="message-text"><strong>${data.username}:</strong> ${cleanMessage} <small>(${new Date(data.timestamp).toLocaleTimeString()})</small> <span class="reply-count" style="display:none"></span></div>
+                        <div class="message-actions">${replyActions}</div>
+                    </div>
                     ${getAttachmentMarkup(data.attachmentUrl, data.attachmentType)}
-                    <div class="message-actions">${replyActions}</div>
                     <div class="replies" style="display:none"></div>
                 `;
                 repliesDiv.appendChild(replyItem);
