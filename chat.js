@@ -665,41 +665,58 @@
             console.log('First message display:', window.getComputedStyle(messagesDiv.children[0]).display);
         }
         
-        // Then render all replies (support nested replies by rendering in multiple passes)
-        const replyMessages = messages.filter(m => m.parent_id);
-        let remainingReplies = [...replyMessages];
-        let maxPasses = 10; // Prevent infinite loop
+        // Optimized nested reply rendering with O(n) complexity
+        // Group replies by parent_id for efficient lookup
+        const replyMap = {};
+        messages.filter(m => m.parent_id).forEach(msg => {
+            if (!replyMap[msg.parent_id]) replyMap[msg.parent_id] = [];
+            replyMap[msg.parent_id].push(msg);
+        });
         
-        while (remainingReplies.length > 0 && maxPasses > 0) {
-            const rendered = [];
-            remainingReplies.forEach(msg => {
-                const parentElement = document.querySelector(`[data-id="${msg.parent_id}"]`);
-                if (parentElement) {
-                    const repliesDiv = parentElement.querySelector('.replies');
-                    if (repliesDiv) {
-                        const replyItem = document.createElement('div');
-                        replyItem.classList.add('reply-message');
-                        replyItem.dataset.id = msg.id;
-                        const cleanMessage = msg.message.replace(/^@\w+\s*/, '');
-                        const own = msg.username === currentUsername;
-                        const actionsHtml = `<button class="reply-btn" data-username="${msg.username}" title="Reply">\uD83D\uDCAC</button> <button class="share-btn" data-message="${cleanMessage}" data-id="${msg.id}" title="Share">\u2197</button>${own ? ` <button class="delete-btn" data-id="${msg.id}" title="Delete">🗑️</button>` : ''}`;
-                        replyItem.innerHTML = `
-                            <div class="message-text"><strong>${msg.username}:</strong> ${cleanMessage} <small>(${new Date(msg.created_at).toLocaleTimeString()})</small> <span class="reply-count" style="display:none"></span></div>
-                            ${getAttachmentMarkup(msg.attachment_url, msg.attachment_type)}
-                            <div class="message-actions">${actionsHtml}</div>
-                            <div class="replies" style="display:none"></div>
-                        `;
-                        repliesDiv.appendChild(replyItem);
-                        rendered.push(msg.id);
+        // Recursive function to render replies
+        function renderRepliesRecursive(parentId, parentElement) {
+            const replies = replyMap[parentId];
+            if (!replies || replies.length === 0) return;
+            
+            const repliesDiv = parentElement.querySelector(':scope > .replies');
+            if (!repliesDiv) return;
+            
+            replies.forEach(msg => {
+                const replyItem = document.createElement('div');
+                replyItem.classList.add('reply-message');
+                replyItem.dataset.id = msg.id;
+                const cleanMessage = msg.message.replace(/^@\w+\s*/, '');
+                const own = msg.username === currentUsername;
+                const actionsHtml = `<button class="reply-btn" data-username="${msg.username}" title="Reply">\uD83D\uDCAC</button> <button class="share-btn" data-message="${cleanMessage}" data-id="${msg.id}" title="Share">\u2197</button>${own ? ` <button class="delete-btn" data-id="${msg.id}" title="Delete">🗑️</button>` : ''}`;
+                replyItem.innerHTML = `
+                    <div class="message-text"><strong>${msg.username}:</strong> ${cleanMessage} <small>(${new Date(msg.created_at).toLocaleTimeString()})</small> <span class="reply-count" style="display:none"></span></div>
+                    ${getAttachmentMarkup(msg.attachment_url, msg.attachment_type)}
+                    <div class="message-actions">${actionsHtml}</div>
+                    <div class="replies" style="display:none"></div>
+                `;
+                repliesDiv.appendChild(replyItem);
+                
+                // Recursively render nested replies
+                renderRepliesRecursive(msg.id, replyItem);
+                
+                // Update reply count for this message
+                const nestedReplies = replyItem.querySelector(':scope > .replies');
+                if (nestedReplies && nestedReplies.children.length > 0) {
+                    const replyCount = replyItem.querySelector(':scope > .message-text > .reply-count');
+                    if (replyCount) {
+                        replyCount.innerHTML = `<span style="font-size:16px;margin-right:4px;">\uD83D\uDCAC</span>${nestedReplies.children.length}`;
+                        replyCount.style.display = 'inline';
                     }
                 }
             });
-            remainingReplies = remainingReplies.filter(m => !rendered.includes(m.id));
-            maxPasses--;
         }
         
-        // Update reply counts (including nested replies)
-        document.querySelectorAll('.message-item, .reply-message').forEach(item => {
+        // Render replies for all top-level messages
+        document.querySelectorAll('.message-item').forEach(item => {
+            const messageId = parseInt(item.dataset.id);
+            renderRepliesRecursive(messageId, item);
+            
+            // Update reply count for top-level messages
             const repliesDiv = item.querySelector(':scope > .replies');
             if (repliesDiv && repliesDiv.children.length > 0) {
                 const replyCount = item.querySelector(':scope > .message-text > .reply-count');
