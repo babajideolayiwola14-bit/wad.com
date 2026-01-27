@@ -1292,6 +1292,18 @@ io.on('connection', (socket) => {
       if (!validation.valid) {
         console.log('Message rejected for', username, 'in', state, lga, ':', validation.reason);
         console.log('Rejected message text:', message);
+        
+        // Store rejected message for admin review and analytics
+        try {
+          await dbRun(
+            'INSERT INTO flagged_messages (username, message, rejection_reason, state, lga, status) VALUES (?, ?, ?, ?, ?, ?)',
+            [username, message, validation.reason, state, lga, 'rejected']
+          );
+          console.log('Stored rejected message from', username, 'in flagged_messages');
+        } catch (err) {
+          console.error('Failed to store rejected message:', err);
+        }
+        
         socket.emit('message rejected', { 
           reason: validation.reason,
           message: message 
