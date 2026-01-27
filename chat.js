@@ -665,32 +665,41 @@
             console.log('First message display:', window.getComputedStyle(messagesDiv.children[0]).display);
         }
         
-        // Then render all replies
+        // Then render all replies (support nested replies by rendering in multiple passes)
         const replyMessages = messages.filter(m => m.parent_id);
-        replyMessages.forEach(msg => {
-            const parentElement = document.querySelector(`[data-id="${msg.parent_id}"]`);
-            if (parentElement) {
-                const repliesDiv = parentElement.querySelector('.replies');
-                if (repliesDiv) {
-                    const replyItem = document.createElement('div');
-                    replyItem.classList.add('reply-message');
-                    replyItem.dataset.id = msg.id;
-                    const cleanMessage = msg.message.replace(/^@\w+\s*/, '');
-                    const own = msg.username === currentUsername;
-                    const actionsHtml = `<button class="reply-btn" data-username="${msg.username}" title="Reply">\uD83D\uDCAC</button> <button class="share-btn" data-message="${cleanMessage}" data-id="${msg.id}" title="Share">\u2197</button>${own ? ` <button class="delete-btn" data-id="${msg.id}" title="Delete">🗑️</button>` : ''}`;
-                    replyItem.innerHTML = `
-                        <div class="message-text"><strong>${msg.username}:</strong> ${cleanMessage} <small>(${new Date(msg.created_at).toLocaleTimeString()})</small> <span class="reply-count" style="display:none"></span></div>
-                        ${getAttachmentMarkup(msg.attachment_url, msg.attachment_type)}
-                        <div class="message-actions">${actionsHtml}</div>
-                        <div class="replies" style="display:none"></div>
-                    `;
-                    repliesDiv.appendChild(replyItem);
-                }
-            }
-        });
+        let remainingReplies = [...replyMessages];
+        let maxPasses = 10; // Prevent infinite loop
         
-        // Update reply counts
-        document.querySelectorAll('.message-item').forEach(item => {
+        while (remainingReplies.length > 0 && maxPasses > 0) {
+            const rendered = [];
+            remainingReplies.forEach(msg => {
+                const parentElement = document.querySelector(`[data-id="${msg.parent_id}"]`);
+                if (parentElement) {
+                    const repliesDiv = parentElement.querySelector('.replies');
+                    if (repliesDiv) {
+                        const replyItem = document.createElement('div');
+                        replyItem.classList.add('reply-message');
+                        replyItem.dataset.id = msg.id;
+                        const cleanMessage = msg.message.replace(/^@\w+\s*/, '');
+                        const own = msg.username === currentUsername;
+                        const actionsHtml = `<button class="reply-btn" data-username="${msg.username}" title="Reply">\uD83D\uDCAC</button> <button class="share-btn" data-message="${cleanMessage}" data-id="${msg.id}" title="Share">\u2197</button>${own ? ` <button class="delete-btn" data-id="${msg.id}" title="Delete">🗑️</button>` : ''}`;
+                        replyItem.innerHTML = `
+                            <div class="message-text"><strong>${msg.username}:</strong> ${cleanMessage} <small>(${new Date(msg.created_at).toLocaleTimeString()})</small> <span class="reply-count" style="display:none"></span></div>
+                            ${getAttachmentMarkup(msg.attachment_url, msg.attachment_type)}
+                            <div class="message-actions">${actionsHtml}</div>
+                            <div class="replies" style="display:none"></div>
+                        `;
+                        repliesDiv.appendChild(replyItem);
+                        rendered.push(msg.id);
+                    }
+                }
+            });
+            remainingReplies = remainingReplies.filter(m => !rendered.includes(m.id));
+            maxPasses--;
+        }
+        
+        // Update reply counts (including nested replies)
+        document.querySelectorAll('.message-item, .reply-message').forEach(item => {
             const repliesDiv = item.querySelector(':scope > .replies');
             if (repliesDiv && repliesDiv.children.length > 0) {
                 const replyCount = item.querySelector(':scope > .message-text > .reply-count');
