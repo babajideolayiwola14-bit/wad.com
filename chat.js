@@ -957,10 +957,13 @@
     let isReplying = false;
     messagesDiv.addEventListener('click', (event) => {
         console.log('messagesDiv click:', event.target, 'classList:', event.target.classList);
-        if (event.target.classList.contains('reply-btn')) {
-            console.log('Reply button clicked!', 'username:', event.target.dataset.username);
-            const username = event.target.dataset.username;
-            const messageItem = event.target.closest('.message-item, .reply-message');
+        
+        // Check if clicked element or its parent is a reply button
+        const replyBtn = event.target.closest('.reply-btn');
+        if (replyBtn) {
+            console.log('Reply button clicked!', 'username:', replyBtn.dataset.username);
+            const username = replyBtn.dataset.username;
+            const messageItem = replyBtn.closest('.message-item, .reply-message');
             console.log('Found messageItem:', messageItem);
             // Check if reply form already exists
             if (messageItem.querySelector(':scope > .reply-form')) return;
@@ -995,15 +998,22 @@
                     }
                 });
             }
-        } else if (event.target.classList.contains('share-btn')) {
-            const message = event.target.dataset.message;
-            const messageItem = event.target.closest('.message-item, .reply-message');
+        }
+        
+        const shareBtn = event.target.closest('.share-btn');
+        if (shareBtn) {
+            const message = shareBtn.dataset.message;
+            const messageItem = shareBtn.closest('.message-item, .reply-message');
             navigator.clipboard.writeText(message).then(() => alert('Message copied to clipboard!'));
             if (messageItem && messageItem.dataset.id) {
                 recordInteraction(messageItem.dataset.id, 'share');
             }
-        } else if (event.target.classList.contains('delete-btn')) {
-            const item = event.target.closest('.message-item, .reply-message');
+            return;
+        }
+        
+        const deleteBtn = event.target.closest('.delete-btn');
+        if (deleteBtn) {
+            const item = deleteBtn.closest('.message-item, .reply-message');
             const id = item ? item.dataset.id : null;
             if (!id) return;
             (async () => {
@@ -1022,9 +1032,13 @@
                     alert('Failed to delete message');
                 }
             })();
-        } else if (event.target.classList.contains('reply-send-btn')) {
+            return;
+        }
+        
+        const replySendBtn = event.target.closest('.reply-send-btn');
+        if (replySendBtn) {
             if (isReplying) return;
-            const replyForm = event.target.closest('.reply-form');
+            const replyForm = replySendBtn.closest('.reply-form');
             const replyInput = replyForm.querySelector('.reply-input');
             const message = replyInput.textContent.trim();
             const replyAttachInput = replyForm.querySelector('.reply-attachment-input');
@@ -1057,9 +1071,16 @@
                     }
                 })();
             }
-        } else if (event.target.classList.contains('reply-cancel-btn')) {
-            event.target.closest('.reply-form').remove();
-        } else if (event.target.classList.contains('reply-count') || event.target.closest('.reply-count')) {
+            return;
+        }
+        
+        const replyCancelBtn = event.target.closest('.reply-cancel-btn');
+        if (replyCancelBtn) {
+            replyCancelBtn.closest('.reply-form').remove();
+            return;
+        }
+        
+        if (event.target.classList.contains('reply-count') || event.target.closest('.reply-count')) {
             const replyCountElement = event.target.classList.contains('reply-count') ? event.target : event.target.closest('.reply-count');
             const messageItem = replyCountElement.closest('.message-item, .reply-message');
             const repliesDiv = messageItem.querySelector(':scope > .replies');
