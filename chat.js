@@ -909,7 +909,7 @@
                 repliesDiv.appendChild(replyItem);
                 
                 // Update reply count for the immediate parent
-                const replyCount = parentElement.querySelector(':scope > .message-text > .reply-count');
+                const replyCount = parentElement.querySelector('.reply-count');
                 const currentCount = repliesDiv.children.length;
                 if (replyCount) {
                     replyCount.innerHTML = `<span style="font-size:16px;margin-right:4px;">\uD83D\uDCAC</span>${currentCount}`;
@@ -923,7 +923,7 @@
                     if (grandparent) {
                         const grandparentReplies = grandparent.querySelector(':scope > .replies');
                         const grandparentCount = grandparentReplies ? grandparentReplies.children.length : 0;
-                        const grandparentReplyCount = grandparent.querySelector(':scope > .message-text > .reply-count');
+                        const grandparentReplyCount = grandparent.querySelector('.reply-count');
                         if (grandparentReplyCount && grandparentCount > 0) {
                             grandparentReplyCount.innerHTML = `<span style="font-size:16px;margin-right:4px;">\uD83D\uDCAC</span>${grandparentCount}`;
                             grandparentReplyCount.style.display = 'inline';
