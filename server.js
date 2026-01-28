@@ -1304,15 +1304,21 @@ io.on('connection', (socket) => {
 
   // Listen for chat messages
   socket.on('chat message', async (data) => {
-    const message = typeof data === 'string' ? data : data.message;
-    const attachmentUrl = data && data.attachmentUrl ? data.attachmentUrl : null;
-    const attachmentType = data && data.attachmentType ? data.attachmentType : null;
-    const parentId = (data && data.parentId) ? Number(data.parentId) : null;
-    const username = socket.user.username;
-    const state = (socket.user.state || '').trim();
-    const lga = (socket.user.lga || '').trim();
-    const messageRoom = state && lga ? `${state}_${lga}` : null;
-    const now = new Date();
+    try {
+      if (!socket.user || !socket.user.username) {
+        console.error('Chat message from socket without user data');
+        return;
+      }
+      
+      const message = typeof data === 'string' ? data : data.message;
+      const attachmentUrl = data && data.attachmentUrl ? data.attachmentUrl : null;
+      const attachmentType = data && data.attachmentType ? data.attachmentType : null;
+      const parentId = (data && data.parentId) ? Number(data.parentId) : null;
+      const username = socket.user.username;
+      const state = (socket.user.state || '').trim();
+      const lga = (socket.user.lga || '').trim();
+      const messageRoom = state && lga ? `${state}_${lga}` : null;
+      const now = new Date();
 
     // Validate main messages (not replies) for action statements
     if (!parentId) {
@@ -1389,6 +1395,9 @@ io.on('connection', (socket) => {
       });
     } catch (err) {
       console.error('Failed to persist message:', err);
+    }
+    } catch (err) {
+      console.error('Error in chat message handler:', err.message, err.stack);
     }
   });
 
