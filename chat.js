@@ -907,14 +907,29 @@
                     <div class="replies" style="display:none"></div>
                 `;
                 repliesDiv.appendChild(replyItem);
-                // Keep replies collapsed - don't auto-show
-                // Update count
-                const replyCount = parentElement.querySelector('.reply-count');
+                
+                // Update reply count for the immediate parent
+                const replyCount = parentElement.querySelector(':scope > .message-text > .reply-count');
                 const currentCount = repliesDiv.children.length;
                 if (replyCount) {
                     replyCount.innerHTML = `<span style="font-size:16px;margin-right:4px;">\uD83D\uDCAC</span>${currentCount}`;
                     replyCount.style.display = 'inline';
                     replyCount.style.cursor = 'pointer';
+                }
+                
+                // If parent is itself a reply, update its parent's count too (for nested replies)
+                if (parentElement.classList.contains('reply-message')) {
+                    const grandparent = parentElement.parentElement.closest('.message-item, .reply-message');
+                    if (grandparent) {
+                        const grandparentReplies = grandparent.querySelector(':scope > .replies');
+                        const grandparentCount = grandparentReplies ? grandparentReplies.children.length : 0;
+                        const grandparentReplyCount = grandparent.querySelector(':scope > .message-text > .reply-count');
+                        if (grandparentReplyCount && grandparentCount > 0) {
+                            grandparentReplyCount.innerHTML = `<span style="font-size:16px;margin-right:4px;">\uD83D\uDCAC</span>${grandparentCount}`;
+                            grandparentReplyCount.style.display = 'inline';
+                            grandparentReplyCount.style.cursor = 'pointer';
+                        }
+                    }
                 }
             }
         } else {
