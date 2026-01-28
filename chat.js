@@ -23,11 +23,20 @@
         console.log('Token re-saved for mobile persistence');
     }
     
+    // Close any existing socket connection before creating new one
+    if (window.activeSocket && window.activeSocket.connected) {
+        console.log('Closing existing socket connection');
+        window.activeSocket.disconnect();
+    }
+    
     const socket = io({
         auth: {
             token: token
         }
     });
+    
+    // Store in global for cleanup
+    window.activeSocket = socket;
 
     // Track if we've loaded the feed yet
     let feedLoaded = false;
@@ -769,8 +778,16 @@
             if (chatContainer) chatContainer.style.display = 'none';
             if (loginContainer) loginContainer.style.display = 'block';
             if (messagesDiv) messagesDiv.innerHTML = '';
-            // Disconnect socket
-            socket.disconnect();
+            // Disconnect socket and wait before redirecting
+            if (socket && socket.connected) {
+                socket.disconnect();
+                // Wait 500ms for socket to fully disconnect
+                setTimeout(() => {
+                    window.location.reload();
+                }, 500);
+            } else {
+                window.location.reload();
+            }
         });
     }
 
@@ -939,9 +956,12 @@
     // Event delegation for reply and share buttons
     let isReplying = false;
     messagesDiv.addEventListener('click', (event) => {
+        console.log('messagesDiv click:', event.target, 'classList:', event.target.classList);
         if (event.target.classList.contains('reply-btn')) {
+            console.log('Reply button clicked!', 'username:', event.target.dataset.username);
             const username = event.target.dataset.username;
             const messageItem = event.target.closest('.message-item, .reply-message');
+            console.log('Found messageItem:', messageItem);
             // Check if reply form already exists
             if (messageItem.querySelector(':scope > .reply-form')) return;
             // Create reply form
@@ -1039,11 +1059,12 @@
             }
         } else if (event.target.classList.contains('reply-cancel-btn')) {
             event.target.closest('.reply-form').remove();
-        } else if (event.target.classList.contains('reply-count')) {
-            const messageItem = event.target.closest('.message-item, .reply-message');
+        } else if (event.target.classList.contains('reply-count') || event.target.closest('.reply-count')) {
+            const replyCountElement = event.target.classList.contains('reply-count') ? event.target : event.target.closest('.reply-count');
+            const messageItem = replyCountElement.closest('.message-item, .reply-message');
             const repliesDiv = messageItem.querySelector(':scope > .replies');
             if (repliesDiv) {
-                if (repliesDiv.style.display === 'none') {
+                if (repliesDiv.style.display === 'none' || !repliesDiv.style.display) {
                     repliesDiv.style.display = 'block';
                 } else {
                     repliesDiv.style.display = 'none';
