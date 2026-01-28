@@ -389,6 +389,10 @@ app.use((req, res, next) => {
   );
   next();
 });
+
+// Trust Heroku proxy for proper IP detection
+app.set('trust proxy', 1);
+
 app.use(bodyParser.json());
 app.use(express.static(path.join(__dirname)));
 if (!fs.existsSync(path.join(__dirname, 'uploads'))) {
@@ -1263,16 +1267,40 @@ io.use((socket, next) => {
   });
 });
 
-// Socket.io connection
-io.on('connection', (socket) => {
-  console.log('User connected:', socket.user.username);
+// Socket.io connection with user tracking to prevent multiple connections
+const userSockets = new Map(); // Track active sockets per username
 
-  // Join location-based room (state_lga) - normalize by trimming
-  const normalizedState = (socket.user.state || '').trim();
-  const normalizedLga = (socket.user.lga || '').trim();
-  const locationRoom = `${normalizedState}_${normalizedLga}`;
-  socket.join(locationRoom);
-  console.log('User joined room:', locationRoom);
+io.on('connection', (socket) => {
+  try {
+    if (!socket.user || !socket.user.username) {
+      console.error('Socket connected without valid user data');
+      socket.disconnect(true);
+      return;
+    }
+    
+    const username = socket.user.username;
+    console.log('User connected:', username);
+    
+    // Check if user already has an active connection
+    if (userSockets.has(username)) {
+      const existingSocket = userSockets.get(username);
+      console.log('User', username, 'already has active connection. Closing old connection.');
+      try {
+        existingSocket.disconnect(true);
+      } catch (e) {
+        console.error('Error disconnecting old socket:', e.message);
+      }
+    }
+    
+    // Store new connection
+    userSockets.set(username, socket);
+
+    // Join location-based room (state_lga) - normalize by trimming
+    const normalizedState = (socket.user.state || '').trim();
+    const normalizedLga = (socket.user.lga || '').trim();
+    const locationRoom = `${normalizedState}_${normalizedLga}`;
+    socket.join(locationRoom);
+    console.log('User joined room:', locationRoom);
 
   // Listen for chat messages
   socket.on('chat message', async (data) => {
@@ -1365,8 +1393,32 @@ io.on('connection', (socket) => {
   });
 
   socket.on('disconnect', () => {
-    console.log('User disconnected:', socket.user.username);
+    try {
+      if (!socket.user || !socket.user.username) {
+        console.error('Socket disconnected without valid user data');
+        return;
+      }
+      
+      const username = socket.user.username;
+      console.log('User disconnected:', username);
+      
+      // Only remove from map if this is the current socket for this user
+      if (userSockets.get(username) === socket) {
+        userSockets.delete(username);
+        console.log('Removed socket for', username);
+      }
+    } catch (err) {
+      console.error('Error in disconnect handler:', err.message);
+    }
   });
+} catch (err) {
+  console.error('Error in socket connection handler:', err.message, err.stack);
+  try {
+    socket.disconnect(true);
+  } catch (e) {
+    console.error('Error disconnecting socket:', e.message);
+  }
+}
 });
 
 // Delete a message (soft delete)
