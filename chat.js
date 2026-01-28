@@ -998,6 +998,14 @@
             messageItem.appendChild(replyForm);
             const replyInput = replyForm.querySelector('.reply-input');
             replyInput.focus();
+            
+            // Strip HTML formatting on paste
+            replyInput.addEventListener('paste', (e) => {
+                e.preventDefault();
+                const text = (e.clipboardData || window.clipboardData).getData('text/plain');
+                document.execCommand('insertText', false, text);
+            });
+            
             const replyAttachBtn = replyForm.querySelector('.reply-attach-btn');
             const replyAttachInput = replyForm.querySelector('.reply-attachment-input');
             const replyAttachName = replyForm.querySelector('.reply-attachment-name');

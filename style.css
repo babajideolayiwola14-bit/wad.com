@@ -344,11 +344,15 @@ button[type="submit"]:hover {
 
 .reply-input {
     min-height: 20px;
+    max-height: 150px;
     padding: 5px;
     border: 1px solid #ccc;
     border-radius: 3px;
     outline: none;
     width: 100%;
+    overflow-y: auto;
+    word-wrap: break-word;
+    white-space: pre-wrap;
 }
 
 .reply-send-btn, .reply-cancel-btn {
