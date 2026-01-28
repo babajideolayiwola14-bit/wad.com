@@ -117,6 +117,15 @@
         Notification.requestPermission();
     }
 
+    // Strip HTML formatting on paste for main message input
+    if (messageInput) {
+        messageInput.addEventListener('paste', (e) => {
+            e.preventDefault();
+            const text = (e.clipboardData || window.clipboardData).getData('text/plain');
+            document.execCommand('insertText', false, text);
+        });
+    }
+
     // Store user's interacted message IDs for notification checking
     let userInteractedMessageIds = new Set();
 
