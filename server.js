@@ -20,6 +20,18 @@ const helmet = require('helmet');
 const mongoSanitize = require('mongo-sanitize');
 const xss = require('xss-clean');
 
+// Global error handlers to prevent crashes
+process.on('uncaughtException', (err) => {
+  console.error('UNCAUGHT EXCEPTION! Shutting down gracefully...', err.message, err.stack);
+  // Don't exit immediately, let existing connections finish
+  setTimeout(() => process.exit(1), 1000);
+});
+
+process.on('unhandledRejection', (err) => {
+  console.error('UNHANDLED REJECTION! Details:', err);
+  // Log but don't crash - this is often recoverable
+});
+
 const app = express();
 const server = http.createServer(app);
 const io = socketIo(server, {
