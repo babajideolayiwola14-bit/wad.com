@@ -206,15 +206,16 @@ button[type="submit"]:hover {
 
 button[type="submit"] {
     padding: 10px 16px;
-    background-color: #000;
-    color: white;
-    border: none;
+    background-color: #fff;
+    color: #000;
+    border: 1px solid #000;
     cursor: pointer;
     font-size: 16px;
+    border-radius: 4px;
 }
 
 button[type="submit"]:hover {
-    background-color: #333;
+    background-color: #f5f5f5;
 }
 
 #logout {
@@ -368,12 +369,14 @@ button[type="submit"]:hover {
 }
 
 .reply-send-btn {
-    background-color: #000;
-    color: white;
+    background-color: #fff;
+    color: #000;
+    border: 1px solid #000;
 }
 
 .reply-cancel-btn {
-    background-color: #ccc;
+    background-color: #fff;
+    border: 1px solid #ccc;
 }
 
 .reply-header {
@@ -427,9 +430,9 @@ button[type="submit"]:hover {
 .toggle-profile-btn {
     display: none;
     padding: 8px 12px;
-    background-color: #000;
-    color: white;
-    border: none;
+    background-color: #fff;
+    color: #000;
+    border: 1px solid #000;
     border-radius: 4px;
     cursor: pointer;
     font-size: 14px;
@@ -437,7 +440,7 @@ button[type="submit"]:hover {
 }
 
 .toggle-profile-btn:hover {
-    background-color: #333;
+    background-color: #f5f5f5;
 }
 
 @keyframes flash-border {
