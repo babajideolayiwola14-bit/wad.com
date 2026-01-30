@@ -173,12 +173,16 @@ button[type="submit"]:hover {
 
 #message {
     min-height: 40px;
+    max-height: 150px;
     padding: 10px;
     border: 1px solid #ccc;
     border-radius: 4px;
     font-size: 14px;
     outline: none;
     word-wrap: break-word;
+    white-space: pre-wrap;
+    overflow-y: auto;
+    overflow-x: hidden;
 }
 
 #send-btn {
