@@ -845,6 +845,11 @@ app.post('/admin/reject/:id', verifyHttpToken, async (req, res) => {
   }
 });
 
+// Admin dashboard page
+app.get('/admin-db', (req, res) => {
+  res.sendFile(path.join(__dirname, 'admin-db.html'));
+});
+
 // Admin: View all database tables
 app.get('/admin/db/messages', verifyHttpToken, async (req, res) => {
   try {
