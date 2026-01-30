@@ -606,6 +606,22 @@ app.post('/interact', verifyHttpToken, async (req, res) => {
     return res.status(400).json({ message: 'messageId and type are required' });
   }
   try {
+    // Check if interaction already exists (prevent duplicates)
+    const existing = await dbAll(
+      'SELECT id FROM interactions WHERE username = ? AND message_id = ? AND type = ? LIMIT 1',
+      [req.user.username, messageId, type]
+    );
+    
+    if (existing && existing.length > 0) {
+      console.log('Interaction already exists, skipping duplicate:', req.user.username, messageId, type);
+      // Get the message location for response
+      const messageLocation = await dbAll(
+        'SELECT state, lga FROM messages WHERE id = ? LIMIT 1',
+        [messageId]
+      );
+      return res.json({ ok: true, duplicate: true, newLocation: messageLocation[0] || null });
+    }
+    
     // Get the message's location
     const messageLocation = await dbAll(
       'SELECT state, lga FROM messages WHERE id = ? LIMIT 1',
@@ -636,6 +652,10 @@ app.post('/interact', verifyHttpToken, async (req, res) => {
     res.json({ ok: true, newLocation: messageLocation[0] || null });
   } catch (err) {
     console.error('Failed to record interaction:', err);
+    // If it's a unique constraint violation, treat as duplicate
+    if (err.message && err.message.includes('unique')) {
+      return res.json({ ok: true, duplicate: true });
+    }
     res.status(500).json({ message: 'Failed to record interaction' });
   }
 });
