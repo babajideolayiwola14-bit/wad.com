@@ -278,7 +278,7 @@
                 viewAllBtn = document.createElement('button');
                 viewAllBtn.id = 'view-all-btn';
                 viewAllBtn.textContent = 'View All Messages';
-                viewAllBtn.style.cssText = 'padding:8px 12px; margin-bottom:10px; background:#fff; color:#000; border:1px solid #000; border-radius:4px; cursor:pointer;';
+                viewAllBtn.style.cssText = 'padding:8px 12px; margin-bottom:10px; background:#fff; color:#000; border:none; border-radius:4px; cursor:pointer;';
                 messagesDiv.parentElement.insertBefore(viewAllBtn, messagesDiv);
                 viewAllBtn.addEventListener('click', () => {
                     // Show all hidden messages
@@ -328,7 +328,7 @@
                 const stateHeader = document.createElement('div');
                 stateHeader.className = 'state-group-header';
                 const totalInteractions = Object.values(stateGroup.lgas).reduce((sum, lga) => sum + lga.interactions.length, 0);
-                stateHeader.style.cssText = 'padding:10px; background:#fff; color:#000; cursor:pointer; font-weight:bold; border-radius:4px; margin-bottom:5px; display:flex; justify-content:space-between; align-items:center; border:1px solid #000;';
+                stateHeader.style.cssText = 'padding:10px; background:#fff; color:#000; cursor:pointer; font-weight:bold; border-radius:4px; margin-bottom:5px; display:flex; justify-content:space-between; align-items:center;';
                 stateHeader.innerHTML = `
                     <span><span class="state-toggle-icon">▶</span> ${stateGroup.state}</span>
                     <span style="font-size:12px; opacity:0.9;">${totalInteractions} interaction${totalInteractions !== 1 ? 's' : ''}</span>
@@ -858,8 +858,8 @@
                 <p style="color:#333; line-height:1.6;">${data.reason}</p>
                 <p style="color:#666; font-size:14px; margin-top:12px;">Remember: This platform is for action requests only. State clearly what you need done.</p>
                 <div style="margin-top:16px; display:flex; gap:10px;">
-                    <button id="report-btn" style="padding:10px 20px; background:#fff; color:#000; border:1px solid #ccc; border-radius:4px; cursor:pointer; font-size:14px;">Report Incorrect</button>
-                    <button onclick="this.closest('div[style*=fixed]').remove()" style="padding:10px 20px; background:#fff; color:#000; border:1px solid #000; border-radius:4px; cursor:pointer; font-size:14px;">Got it</button>
+                    <button id="report-btn" style="padding:10px 20px; background:#fff; color:#000; border:none; border-radius:4px; cursor:pointer; font-size:14px;">Report Incorrect</button>
+                    <button onclick="this.closest('div[style*=fixed]').remove()" style="padding:10px 20px; background:#fff; color:#000; border:none; border-radius:4px; cursor:pointer; font-size:14px;">Got it</button>
                 </div>
             </div>
         `;
