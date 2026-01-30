@@ -278,7 +278,7 @@
                 viewAllBtn = document.createElement('button');
                 viewAllBtn.id = 'view-all-btn';
                 viewAllBtn.textContent = 'View All Messages';
-                viewAllBtn.style.cssText = 'padding:8px 12px; margin-bottom:10px; background:#007bff; color:white; border:none; border-radius:4px; cursor:pointer;';
+                viewAllBtn.style.cssText = 'padding:8px 12px; margin-bottom:10px; background:#000; color:white; border:none; border-radius:4px; cursor:pointer;';
                 messagesDiv.parentElement.insertBefore(viewAllBtn, messagesDiv);
                 viewAllBtn.addEventListener('click', () => {
                     // Show all hidden messages
@@ -328,7 +328,7 @@
                 const stateHeader = document.createElement('div');
                 stateHeader.className = 'state-group-header';
                 const totalInteractions = Object.values(stateGroup.lgas).reduce((sum, lga) => sum + lga.interactions.length, 0);
-                stateHeader.style.cssText = 'padding:10px; background:#007bff; color:white; cursor:pointer; font-weight:bold; border-radius:4px; margin-bottom:5px; display:flex; justify-content:space-between; align-items:center;';
+                stateHeader.style.cssText = 'padding:10px; background:#000; color:white; cursor:pointer; font-weight:bold; border-radius:4px; margin-bottom:5px; display:flex; justify-content:space-between; align-items:center;';
                 stateHeader.innerHTML = `
                     <span><span class="state-toggle-icon">▶</span> ${stateGroup.state}</span>
                     <span style="font-size:12px; opacity:0.9;">${totalInteractions} interaction${totalInteractions !== 1 ? 's' : ''}</span>
@@ -387,7 +387,7 @@
                                 div.dataset.messageId = item.message_id;
                                 div.dataset.state = item.state;
                                 div.dataset.lga = item.lga;
-                                div.style.cssText = 'padding:8px; margin:5px 0; background:#fff; border-left:3px solid #007bff; cursor:pointer;';
+                                div.style.cssText = 'padding:8px; margin:5px 0; background:#fff; border-left:3px solid #000; cursor:pointer;';
                                 div.innerHTML = `
                                     <div class="profile-interaction-meta" style="font-size:11px; color:#666;">${item.type} • ${new Date(item.created_at).toLocaleString()}</div>
                                     <div class="profile-interaction-text" style="font-size:13px; margin-top:4px;">${item.message.substring(0, 80)}${item.message.length > 80 ? '...' : ''}</div>
@@ -522,8 +522,8 @@
                         const messageElement = document.querySelector(`[data-id="${messageId}"]`);
                         if (messageElement) {
                             messageElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                            messageElement.style.backgroundColor = '#fff3cd';
-                            messageElement.style.border = '2px solid #ffc107';
+                            messageElement.style.backgroundColor = '#f5f5f5';
+                            messageElement.style.border = '2px solid #000';
                             setTimeout(() => {
                                 messageElement.style.backgroundColor = '';
                                 messageElement.style.border = '';
@@ -555,8 +555,8 @@
                     if (messageElement) {
                         console.log('Scrolling to message:', messageId);
                         messageElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                        messageElement.style.backgroundColor = '#fff3cd';
-                        messageElement.style.border = '2px solid #ffc107';
+                        messageElement.style.backgroundColor = '#f5f5f5';
+                        messageElement.style.border = '2px solid #000';
                         setTimeout(() => {
                             messageElement.style.backgroundColor = '';
                             messageElement.style.border = '';
@@ -569,8 +569,8 @@
                             if (retryElement) {
                                 console.log('Found on retry, scrolling to message:', messageId);
                                 retryElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                                retryElement.style.backgroundColor = '#fff3cd';
-                                retryElement.style.border = '2px solid #ffc107';
+                                retryElement.style.backgroundColor = '#f5f5f5';
+                                retryElement.style.border = '2px solid #000';
                                 setTimeout(() => {
                                     retryElement.style.backgroundColor = '';
                                     retryElement.style.border = '';
@@ -689,7 +689,7 @@
         if (type && type.startsWith('video')) {
             return `<div class="attachment"><video controls style="max-width:220px; border-radius:6px; margin-top:6px;"><source src="${url}" type="${type}">Your browser does not support the video tag.</video></div>`;
         }
-        return `<div class="attachment" style="margin-top:6px;"><a href="${url}" target="_blank" rel="noopener" style="color:#007bff;">📎 View attachment</a></div>`;
+        return `<div class="attachment" style="margin-top:6px;"><a href="${url}" target="_blank" rel="noopener" style="color:#000;">📎 View attachment</a></div>`;
     }
 
     function renderFeed(messages) {
@@ -858,8 +858,8 @@
                 <p style="color:#333; line-height:1.6;">${data.reason}</p>
                 <p style="color:#666; font-size:14px; margin-top:12px;">Remember: This platform is for action requests only. State clearly what you need done.</p>
                 <div style="margin-top:16px; display:flex; gap:10px;">
-                    <button id="report-btn" style="padding:10px 20px; background:#ffc107; color:#000; border:none; border-radius:4px; cursor:pointer; font-size:14px;">Report Incorrect</button>
-                    <button onclick="this.closest('div[style*=fixed]').remove()" style="padding:10px 20px; background:#007bff; color:white; border:none; border-radius:4px; cursor:pointer; font-size:14px;">Got it</button>
+                    <button id="report-btn" style="padding:10px 20px; background:#fff; color:#000; border:1px solid #000; border-radius:4px; cursor:pointer; font-size:14px;">Report Incorrect</button>
+                    <button onclick="this.closest('div[style*=fixed]').remove()" style="padding:10px 20px; background:#000; color:white; border:none; border-radius:4px; cursor:pointer; font-size:14px;">Got it</button>
                 </div>
             </div>
         `;
@@ -1040,7 +1040,7 @@
             replyForm.innerHTML = `
                 <div class="reply-input" contenteditable="true" placeholder="Reply to @${username}..." data-reply-to="${username}"></div>
                 <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
-                    <button class="reply-attach-btn" type="button" style="padding:6px 10px; border:1px solid #ccc; border-radius:4px; background:#f7f7f7; cursor:pointer;">📎</button>
+                    <button class="reply-attach-btn" type="button" style="padding:6px 10px; border:1px solid #ccc; border-radius:4px; background:#fff; cursor:pointer;">📎</button>
                     <span class="reply-attachment-name" style="font-size:12px; color:#555;"></span>
                     <input type="file" class="reply-attachment-input" style="display:none" accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt" />
                     <button class="reply-send-btn">Reply</button>
