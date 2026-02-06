@@ -796,11 +796,10 @@ app.get('/admin/flagged', verifyHttpToken, async (req, res) => {
     return res.status(403).json({ message: 'Admin access required' });
   }
   try {
-    // In production, add admin role check here
+    // Show all flagged messages (pending, rejected, approved, etc.)
     const flagged = await dbAll(
       `SELECT id, username, message, rejection_reason, state, lga, status, created_at 
        FROM flagged_messages 
-       WHERE status = 'pending' 
        ORDER BY created_at DESC 
        LIMIT 100`
     );
