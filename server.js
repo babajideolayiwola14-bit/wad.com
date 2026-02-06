@@ -900,6 +900,16 @@ app.get('/admin/db/interactions', verifyHttpToken, async (req, res) => {
   }
 });
 
+app.get('/admin/db/flagged', verifyHttpToken, async (req, res) => {
+  try {
+    const data = await dbAll('SELECT * FROM flagged_messages ORDER BY created_at DESC LIMIT 500');
+    res.json({ data });
+  } catch (err) {
+    console.error('Failed to fetch flagged messages:', err);
+    res.status(500).json({ message: 'Failed to fetch data' });
+  }
+});
+
 // Admin: Remove duplicate interactions
 app.post('/admin/remove-duplicate-interactions', verifyHttpToken, async (req, res) => {
   try {
@@ -1108,9 +1118,10 @@ app.post('/admin/query', verifyHttpToken, async (req, res) => {
       return res.status(403).json({ message: 'Only SELECT queries are allowed' });
     }
 
-    // Additional security: Block dangerous keywords
+    // Additional security: Block dangerous keywords (as whole words)
     const forbidden = ['drop', 'delete', 'insert', 'update', 'alter', 'create', 'truncate'];
-    if (forbidden.some(word => trimmedQuery.includes(word))) {
+    const words = trimmedQuery.split(/\s+/);
+    if (forbidden.some(word => words.includes(word))) {
       return res.status(403).json({ message: 'Query contains forbidden keywords' });
     }
 
