@@ -122,7 +122,9 @@
         messageInput.addEventListener('paste', (e) => {
             e.preventDefault();
             const text = (e.clipboardData || window.clipboardData).getData('text/plain');
-            document.execCommand('insertText', false, text);
+            // Preserve newlines by converting to br tags
+            const html = text.replace(/\n/g, '<br>');
+            document.execCommand('insertHTML', false, html);
         });
     }
 
@@ -1055,7 +1057,9 @@
             replyInput.addEventListener('paste', (e) => {
                 e.preventDefault();
                 const text = (e.clipboardData || window.clipboardData).getData('text/plain');
-                document.execCommand('insertText', false, text);
+                // Preserve newlines by converting to br tags
+                const html = text.replace(/\n/g, '<br>');
+                document.execCommand('insertHTML', false, html);
             });
             
             const replyAttachBtn = replyForm.querySelector('.reply-attach-btn');
