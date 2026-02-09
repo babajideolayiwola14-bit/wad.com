@@ -409,6 +409,8 @@ button[type="submit"]:hover {
 
 .message-text {
     flex: 1;
+    white-space: pre-line;
+    word-wrap: break-word;
 }
 
 .message-actions {
