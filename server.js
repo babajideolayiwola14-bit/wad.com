@@ -87,10 +87,21 @@ async function dbRun(sql, params = []) {
     let pgSql = sql;
     let count = 0;
     pgSql = pgSql.replace(/\?/g, () => `$${++count}`);
+    
+    // For INSERT statements, add RETURNING id to get the inserted ID
+    const isInsert = /^\s*INSERT\s+INTO/i.test(pgSql);
+    if (isInsert && !/RETURNING/i.test(pgSql)) {
+      pgSql = pgSql.replace(/;?\s*$/, ' RETURNING id');
+    }
+    
     const client = await pool.connect();
     try {
       const result = await client.query(pgSql, params);
-      return { lastID: result.rows[0]?.id, changes: result.rowCount, rows: result.rows };
+      return { 
+        lastID: result.rows[0]?.id, 
+        changes: result.rowCount, 
+        rows: result.rows 
+      };
     } finally {
       client.release();
     }
