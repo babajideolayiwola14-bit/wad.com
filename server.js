@@ -876,7 +876,20 @@ app.get('/admin/test-flagged', verifyHttpToken, async (req, res) => {
   }
   try {
     // Check if table exists and get structure
-    const tableInfo = await dbAll("SELECT * FROM pragma_table_info('flagged_messages')");
+    let tableInfo;
+    if (USE_POSTGRES) {
+      // PostgreSQL query for table structure
+      tableInfo = await dbAll(`
+        SELECT column_name as name, data_type as type 
+        FROM information_schema.columns 
+        WHERE table_name = 'flagged_messages' 
+        ORDER BY ordinal_position
+      `);
+    } else {
+      // SQLite query for table structure
+      tableInfo = await dbAll("SELECT * FROM pragma_table_info('flagged_messages')");
+    }
+    
     const count = await dbAll('SELECT COUNT(*) as count FROM flagged_messages');
     const recent = await dbAll('SELECT * FROM flagged_messages ORDER BY created_at DESC LIMIT 5');
     
