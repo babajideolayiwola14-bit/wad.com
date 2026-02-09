@@ -869,6 +869,28 @@ app.get('/admin-db', (req, res) => {
   res.sendFile(path.join(__dirname, 'admin-db.html'));
 });
 
+// Test endpoint: Check flagged_messages table health
+app.get('/admin/test-flagged', verifyHttpToken, async (req, res) => {
+  if (!isAdmin(req)) {
+    return res.status(403).json({ message: 'Admin access required' });
+  }
+  try {
+    // Check if table exists and get structure
+    const tableInfo = await dbAll("SELECT * FROM pragma_table_info('flagged_messages')");
+    const count = await dbAll('SELECT COUNT(*) as count FROM flagged_messages');
+    const recent = await dbAll('SELECT * FROM flagged_messages ORDER BY created_at DESC LIMIT 5');
+    
+    res.json({
+      tableExists: tableInfo.length > 0,
+      columns: tableInfo.map(col => ({ name: col.name, type: col.type })),
+      totalRecords: count[0].count,
+      recentRecords: recent
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Admin: View all database tables
 app.get('/admin/db/messages', verifyHttpToken, async (req, res) => {
   try {
@@ -1371,18 +1393,28 @@ io.on('connection', (socket) => {
     if (!parentId) {
       const validation = isActionStatement(message);
       if (!validation.valid) {
-        console.log('Message rejected for', username, 'in', state, lga, ':', validation.reason);
-        console.log('Rejected message text:', message);
+        console.log('=== MESSAGE REJECTED ===');
+        console.log('User:', username);
+        console.log('Location:', state, '/', lga);
+        console.log('Reason:', validation.reason);
+        console.log('Message:', message);
+        console.log('========================');
         
         // Store rejected message for admin review and analytics
         try {
-          await dbRun(
+          const result = await dbRun(
             'INSERT INTO flagged_messages (username, message, rejection_reason, state, lga, status) VALUES (?, ?, ?, ?, ?, ?)',
             [username, message, validation.reason, state, lga, 'rejected']
           );
-          console.log('Stored rejected message from', username, 'in flagged_messages');
+          console.log('✓ Rejected message stored successfully. Insert ID:', result ? result.lastID : 'N/A');
+          
+          // Verify it was stored
+          const verify = await dbAll('SELECT COUNT(*) as count FROM flagged_messages WHERE username = ?', [username]);
+          console.log('Total flagged messages for user', username, ':', verify[0].count);
         } catch (err) {
-          console.error('Failed to store rejected message:', err);
+          console.error('✗ FAILED to store rejected message!');
+          console.error('Error details:', err.message);
+          console.error('Stack:', err.stack);
         }
         
         socket.emit('message rejected', { 
@@ -1393,14 +1425,18 @@ io.on('connection', (socket) => {
       }
       // Flag uncertain messages for admin review
       if (validation.uncertain) {
+        console.log('=== MESSAGE FLAGGED (Uncertain) ===');
+        console.log('User:', username, 'Location:', state, '/', lga);
+        console.log('Message:', message);
+        console.log('===================================');
         try {
           await dbRun(
             'INSERT INTO flagged_messages (username, message, rejection_reason, state, lga, status) VALUES (?, ?, ?, ?, ?, ?)',
             [username, message, 'Low confidence - needs review', state, lga, 'pending']
           );
-          console.log('Flagged uncertain message from', username);
+          console.log('✓ Uncertain message flagged successfully');
         } catch (err) {
-          console.error('Failed to flag message:', err);
+          console.error('✗ Failed to flag uncertain message:', err.message);
         }
       }
     }
