@@ -317,6 +317,8 @@ button[type="submit"]:hover {
 
 .reply-message .message-text {
     flex: 1;
+    white-space: pre-line;
+    word-wrap: break-word;
 }
 
 .reply-message .message-actions {
