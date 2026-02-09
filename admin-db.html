@@ -229,6 +229,7 @@
         </div>
 
         <button class="refresh-btn" onclick="loadAllData()">🔄 Refresh</button>
+        <button class="refresh-btn" onclick="testFlaggedTable()" style="background: #17a2b8;">🔍 Test Flagged Table</button>
 
         <div id="query-tab" class="tab-content active">
             <h2>Custom SQL Query</h2>
@@ -350,6 +351,31 @@
             loadInteractions();
             loadFlagged();
             loadAnalytics();
+        }
+
+        async function testFlaggedTable() {
+            try {
+                const res = await fetch('/admin/test-flagged', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (!res.ok) throw new Error('Failed to test');
+                const data = await res.json();
+                
+                const msg = `
+Flagged Messages Table Status:
+✓ Table Exists: ${data.tableExists ? 'Yes' : 'No'}
+✓ Total Records: ${data.totalRecords}
+✓ Columns: ${data.columns.map(c => c.name).join(', ')}
+
+Recent Records: ${data.recentRecords.length > 0 ? '\n' + JSON.stringify(data.recentRecords, null, 2) : 'None'}
+                `.trim();
+                
+                alert(msg);
+                console.log('Flagged Table Test:', data);
+            } catch (err) {
+                alert('Test failed: ' + err.message);
+                console.error('Test failed:', err);
+            }
         }
 
         let cachedData = {
