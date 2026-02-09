@@ -1118,10 +1118,10 @@ app.post('/admin/query', verifyHttpToken, async (req, res) => {
       return res.status(403).json({ message: 'Only SELECT queries are allowed' });
     }
 
-    // Additional security: Block dangerous keywords (as whole words)
-    const forbidden = ['drop', 'delete', 'insert', 'update', 'alter', 'create', 'truncate'];
-    const words = trimmedQuery.split(/\s+/);
-    if (forbidden.some(word => words.includes(word))) {
+    // Additional security: Block dangerous keywords (using word boundaries)
+    const forbidden = ['\\bdrop\\b', '\\bdelete\\b', '\\binsert\\b', '\\bupdate\\b', '\\balter\\b', '\\bcreate\\b', '\\btruncate\\b'];
+    const forbiddenRegex = new RegExp(forbidden.join('|'), 'i');
+    if (forbiddenRegex.test(trimmedQuery)) {
       return res.status(403).json({ message: 'Query contains forbidden keywords' });
     }
 
