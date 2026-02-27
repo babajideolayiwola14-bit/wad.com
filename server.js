@@ -9,6 +9,8 @@ const http = require('http');
 const socketIo = require('socket.io');
 const multer = require('multer');
 require('dotenv').config();
+const crypto = require('crypto');
+const nodemailer = require('nodemailer');
 
 // Database modules
 const sqlite3 = require('sqlite3').verbose();
@@ -243,8 +245,12 @@ async function ensureSchema() {
     // make sure email column exists on users (migration for existing DB)
     if (USE_POSTGRES) {
       await dbRun("ALTER TABLE users ADD COLUMN IF NOT EXISTS email TEXT UNIQUE; ");
+      await dbRun("ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_token TEXT;");
+      await dbRun("ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_expires TIMESTAMP;");
     } else {
       await dbRun("ALTER TABLE users ADD COLUMN IF NOT EXISTS email TEXT UNIQUE;");
+      await dbRun("ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_token TEXT;");
+      await dbRun("ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_expires DATETIME;");
     }
     console.log('Database schema initialized successfully');
   } catch (err) {
@@ -652,6 +658,116 @@ app.post('/login', authLimiter, async (req, res) => {
     token: token,
     user: { id: user.id, username: user.username, role: user.role || 'user', state: finalState, lga: finalLga, email }
   });
+});
+
+// Request password reset (requires username) - sends email if configured
+app.post('/auth/request-reset', async (req, res) => {
+  const { username } = req.body || {};
+  if (!username) return res.status(400).json({ message: 'Username required' });
+  try {
+    const rows = await dbAll('SELECT username, email FROM users WHERE username = ? LIMIT 1', [username]);
+    if (!rows || rows.length === 0) {
+      // Do not reveal whether username exists
+      return res.json({ message: 'If that account exists an email will be sent' });
+    }
+    const user = rows[0];
+    if (!user.email) {
+      return res.json({ message: 'If that account exists an email will be sent' });
+    }
+
+    const token = crypto.randomBytes(32).toString('hex');
+    const expires = new Date(Date.now() + 60 * 60 * 1000).toISOString(); // 1 hour
+
+    await dbRun(USE_POSTGRES
+      ? 'UPDATE users SET reset_token = $1, reset_expires = $2 WHERE username = $3'
+      : 'UPDATE users SET reset_token = ?, reset_expires = ? WHERE username = ?',
+      [token, expires, username]
+    );
+
+    // Send email if SMTP configured
+    if (process.env.SMTP_HOST && process.env.SMTP_USER) {
+      try {
+        const transporter = nodemailer.createTransport({
+          host: process.env.SMTP_HOST,
+          port: Number(process.env.SMTP_PORT) || 587,
+          secure: process.env.SMTP_SECURE === 'true',
+          auth: {
+            user: process.env.SMTP_USER,
+            pass: process.env.SMTP_PASS
+          }
+        });
+        const appUrl = process.env.APP_URL || '';
+        const resetLink = (appUrl || '') + `/reset.html?token=${token}`;
+        await transporter.sendMail({
+          from: process.env.SMTP_FROM || process.env.SMTP_USER,
+          to: user.email,
+          subject: 'Password reset for your account',
+          text: `You requested a password reset. Visit: ${resetLink}\nThis link expires in 1 hour. If you did not request this, ignore.`,
+          html: `<p>You requested a password reset. Click <a href="${resetLink}">here</a> to reset your password. This link expires in 1 hour.</p>`
+        });
+        return res.json({ message: 'If that account exists an email will be sent' });
+      } catch (err) {
+        console.error('Failed to send reset email:', err);
+      }
+    }
+
+    // If SMTP not configured, optionally show token in dev mode
+    if (process.env.DEV_SHOW_RESET_TOKEN === 'true') {
+      return res.json({ message: 'DEV token', token });
+    }
+
+    res.json({ message: 'If that account exists an email will be sent' });
+  } catch (err) {
+    console.error('Request reset failed:', err);
+    res.status(500).json({ message: 'Failed to request reset' });
+  }
+});
+
+// Verify reset token validity
+app.get('/auth/verify-reset', async (req, res) => {
+  const token = req.query.token;
+  if (!token) return res.status(400).json({ valid: false });
+  try {
+    const rows = await dbAll('SELECT username, reset_expires FROM users WHERE reset_token = ? LIMIT 1', [token]);
+    if (!rows || rows.length === 0) return res.json({ valid: false });
+    const rec = rows[0];
+    const expires = rec.reset_expires ? new Date(rec.reset_expires) : null;
+    if (!expires || expires < new Date()) return res.json({ valid: false });
+    res.json({ valid: true, username: rec.username });
+  } catch (err) {
+    console.error('Verify reset failed:', err);
+    res.status(500).json({ valid: false });
+  }
+});
+
+// Perform password reset
+app.post('/auth/reset', async (req, res) => {
+  const { token, password } = req.body || {};
+  if (!token || !password) return res.status(400).json({ message: 'Token and password required' });
+  if (!isValidPassword(password)) return res.status(400).json({ message: 'Password does not meet requirements' });
+  try {
+    const rows = await dbAll('SELECT username, reset_expires FROM users WHERE reset_token = ? LIMIT 1', [token]);
+    if (!rows || rows.length === 0) return res.status(400).json({ message: 'Invalid or expired token' });
+    const rec = rows[0];
+    const expires = rec.reset_expires ? new Date(rec.reset_expires) : null;
+    if (!expires || expires < new Date()) return res.status(400).json({ message: 'Invalid or expired token' });
+
+    const hashed = bcrypt.hashSync(password, 10);
+    await dbRun(USE_POSTGRES
+      ? 'UPDATE users SET password_hash = $1, reset_token = NULL, reset_expires = NULL WHERE username = $2'
+      : 'UPDATE users SET password_hash = ?, reset_token = NULL, reset_expires = NULL WHERE username = ?',
+      [hashed, rec.username]
+    );
+
+    // update in-memory user if present
+    const mem = users.find(u => u.username === rec.username);
+    if (mem) mem.password = hashed;
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('Reset failed:', err);
+    res.status(500).json({ message: 'Failed to reset password' });
+  }
 });
 
 // Record an interaction (share, reply already captured in sockets, but share uses HTTP)

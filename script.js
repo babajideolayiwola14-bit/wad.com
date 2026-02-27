@@ -275,5 +275,32 @@ if (showLogin) {
     });
 }
 
+// Forgot password flow: ask for username and request reset
+const forgotLink = document.getElementById('forgot-link');
+if (forgotLink) {
+    forgotLink.addEventListener('click', async (e) => {
+        e.preventDefault();
+        const username = prompt('Enter your username to request a password reset:');
+        if (!username) return;
+        try {
+            const res = await fetch('/auth/request-reset', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username: username.trim() })
+            });
+            const data = await res.json();
+            if (data.token) {
+                // Dev mode: show token so developer can use reset.html
+                alert('DEV reset token: ' + data.token + '\nUse reset.html to finish reset.');
+            } else {
+                alert(data.message || 'If that account exists an email will be sent.');
+            }
+        } catch (err) {
+            console.error('Request reset failed', err);
+            alert('Failed to request password reset. Try again later.');
+        }
+    });
+}
+
 // Attempt to restore session on page load (persists login after refresh)
 resumeSession();

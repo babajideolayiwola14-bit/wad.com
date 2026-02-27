@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Reset Password</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .reset-container{max-width:420px;margin:40px auto;padding:20px;border:1px solid #eee;border-radius:6px;background:#fff}
+    .form-group{margin-bottom:12px}
+    label{display:block;margin-bottom:6px}
+    input[type="text"],input[type="password"]{width:100%;padding:8px;border:1px solid #ccc;border-radius:4px}
+    button{padding:10px 14px;border:none;border-radius:4px;background:#007bff;color:#fff;cursor:pointer}
+    .msg{margin-top:12px;font-size:14px}
+  </style>
+</head>
+<body>
+  <div class="reset-container">
+    <h2>Reset your password</h2>
+    <form id="reset-form">
+      <div class="form-group">
+        <label for="token">Reset token</label>
+        <input type="text" id="token" name="token" placeholder="Paste your token here or use link" required>
+      </div>
+      <div class="form-group">
+        <label for="password">New password</label>
+        <input type="password" id="password" name="password" placeholder="New password" required>
+      </div>
+      <div class="form-group">
+        <label for="password2">Confirm new password</label>
+        <input type="password" id="password2" name="password2" placeholder="Confirm new password" required>
+      </div>
+      <button type="submit">Set new password</button>
+    </form>
+    <div id="message" class="msg"></div>
+    <p style="margin-top:12px;font-size:13px;color:#666">If you received a reset link in email, it should open this page with the token in the URL (e.g. <em>?token=...</em>).</p>
+    <p style="margin-top:8px"><a href="index.html">Back to Login</a></p>
+  </div>
+
+  <script>
+    function qs(name){
+      const url = new URL(window.location.href);
+      return url.searchParams.get(name);
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const tokenInput = document.getElementById('token');
+      const token = qs('token');
+      if (token) tokenInput.value = token;
+
+      const form = document.getElementById('reset-form');
+      const msg = document.getElementById('message');
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        msg.textContent = '';
+        const t = tokenInput.value && tokenInput.value.trim();
+        const p = document.getElementById('password').value;
+        const p2 = document.getElementById('password2').value;
+        if (!t) { msg.style.color = 'red'; msg.textContent = 'Token is required.'; return; }
+        if (!p || p.length < 6) { msg.style.color = 'red'; msg.textContent = 'Password must be at least 6 characters.'; return; }
+        if (p !== p2) { msg.style.color = 'red'; msg.textContent = 'Passwords do not match.'; return; }
+
+        try {
+          const res = await fetch('/auth/reset', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token: t, password: p })
+          });
+          const data = await res.json();
+          if (res.ok) {
+            msg.style.color = 'green';
+            msg.textContent = 'Password updated. Redirecting to login...';
+            setTimeout(() => { window.location.href = 'index.html'; }, 1500);
+          } else {
+            msg.style.color = 'red';
+            msg.textContent = data.message || 'Failed to reset password.';
+          }
+        } catch (err) {
+          console.error('Reset error', err);
+          msg.style.color = 'red';
+          msg.textContent = 'Server error. Try again later.';
+        }
+      });
+    });
+  </script>
+</body>
+</html>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Reset Password</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="login-container" style="max-width:420px; margin:40px auto;">
+    <h2>Reset Password</h2>
+    <form id="reset-form">
+      <div class="form-group">
+        <label for="token">Reset Token:</label>
+        <input type="text" id="token" name="token" required>
+      </div>
+      <div class="form-group">
+        <label for="new-password">New Password:</label>
+        <input type="password" id="new-password" name="password" required>
+      </div>
+      <div class="form-group">
+        <label for="confirm-password">Confirm Password:</label>
+        <input type="password" id="confirm-password" required>
+      </div>
+      <button type="submit">Set New Password</button>
+    </form>
+    <p id="reset-message" class="error"></p>
+    <p style="margin-top:12px;">Back to <a href="index.html">Login</a></p>
+  </div>
+  <script>
+    function qs(key) {
+      const params = new URLSearchParams(window.location.search);
+      return params.get(key);
+    }
+    document.addEventListener('DOMContentLoaded', () => {
+      const tokenInput = document.getElementById('token');
+      const t = qs('token');
+      if (t) tokenInput.value = t;
+
+      const form = document.getElementById('reset-form');
+      const msg = document.getElementById('reset-message');
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        msg.textContent = '';
+        const token = document.getElementById('token').value.trim();
+        const pw = document.getElementById('new-password').value;
+        const conf = document.getElementById('confirm-password').value;
+        if (!token || !pw) { msg.textContent = 'Token and password required'; return; }
+        if (pw !== conf) { msg.textContent = 'Passwords do not match'; return; }
+        try {
+          const res = await fetch('/auth/reset', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token, password: pw })
+          });
+          const data = await res.json();
+          if (res.ok) {
+            alert('Password reset successful. You may login now.');
+            window.location.href = 'index.html';
+          } else {
+            msg.textContent = data.message || 'Failed to reset password';
+          }
+        } catch (err) {
+          console.error(err);
+          msg.textContent = 'Request failed. Try again later.';
+        }
+      });
+    });
+  </script>
+</body>
+</html>
