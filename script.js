@@ -124,6 +124,26 @@ async function resumeSession() {
         if (profile.state) localStorage.setItem('state', profile.state);
         if (profile.lga) localStorage.setItem('lga', profile.lga);
         startChat(profile.state, profile.lga);
+
+        // Prompt for email if not set
+        if (!profile.email) {
+            const addr = prompt('Please enter your email address (required for password recovery):');
+            if (addr) {
+                try {
+                    const ures = await fetch('/update-email', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                        body: JSON.stringify({ email: addr.trim() })
+                    });
+                    if (ures.ok) {
+                        alert('Email saved. You can reset your password using it if needed.');
+                    } else {
+                        const msg = (await ures.json()).message || 'Failed to save email';
+                        alert(msg);
+                    }
+                } catch(e) { console.error('Email update failed', e); }
+            }
+        }
     } catch (err) {
         // Token invalid, show login again
         localStorage.removeItem('token');
@@ -168,6 +188,26 @@ document.getElementById('login-form').addEventListener('submit', async function(
             errorMessage.textContent = 'Login successful! Loading chat...';
             errorMessage.style.color = 'green';
             startChat(state, lga);
+            // if email missing ask immediately
+            if (!data.user.email) {
+                setTimeout(async () => {
+                    const addr = prompt('Please enter your email address (required for password recovery):');
+                    if (addr) {
+                        try {
+                            const ures = await fetch('/update-email', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${data.token}` },
+                                body: JSON.stringify({ email: addr.trim() })
+                            });
+                            if (ures.ok) alert('Email saved.');
+                            else {
+                                const msg = (await ures.json()).message || 'Could not save email';
+                                alert(msg);
+                            }
+                        } catch(e){console.error(e);}
+                    }
+                }, 1000);
+            }
         } else {
             errorMessage.textContent = data.message;
             errorMessage.style.color = 'red';
@@ -184,6 +224,7 @@ if (registerForm) {
     registerForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         const username = document.getElementById('reg-username').value;
+        const email = document.getElementById('reg-email').value;
         const password = document.getElementById('reg-password').value;
         const registerMessage = document.getElementById('register-message');
 
@@ -191,7 +232,7 @@ if (registerForm) {
             const response = await fetch('/register', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username, password })
+                body: JSON.stringify({ username, email, password })
             });
 
             const data = await response.json();

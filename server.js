@@ -173,6 +173,7 @@ async function ensureSchema() {
     CREATE TABLE IF NOT EXISTS users (
       username TEXT PRIMARY KEY,
       password_hash TEXT,
+      email TEXT UNIQUE,
       state TEXT,
       lga TEXT,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -181,6 +182,7 @@ async function ensureSchema() {
     CREATE TABLE IF NOT EXISTS users (
       username TEXT PRIMARY KEY,
       password_hash TEXT,
+      email TEXT UNIQUE,
       state TEXT,
       lga TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -238,6 +240,12 @@ async function ensureSchema() {
     await dbRun(createUsersTable);
     await dbRun(createInteractionsTable);
     await dbRun(createFlaggedMessagesTable);
+    // make sure email column exists on users (migration for existing DB)
+    if (USE_POSTGRES) {
+      await dbRun("ALTER TABLE users ADD COLUMN IF NOT EXISTS email TEXT UNIQUE; ");
+    } else {
+      await dbRun("ALTER TABLE users ADD COLUMN IF NOT EXISTS email TEXT UNIQUE;");
+    }
     console.log('Database schema initialized successfully');
   } catch (err) {
     console.error('Failed to ensure schema:', err);
@@ -442,10 +450,14 @@ let nextUserId = 1;
 
 // Registration endpoint
 app.post('/register', authLimiter, async (req, res) => {
-  const { username, password } = req.body;
+  const { username, password, email } = req.body;
 
   if (!username || !password) {
     return res.status(400).json({ message: 'Username and password are required' });
+  }
+
+  if (email && !/^[\w.+\-]+@[\w\-]+\.[A-Za-z]{2,}$/.test(email)) {
+    return res.status(400).json({ message: 'Invalid email format' });
   }
 
   if (!isValidUsername(username)) {
@@ -474,9 +486,9 @@ app.post('/register', authLimiter, async (req, res) => {
     
     await dbRun(
       USE_POSTGRES
-        ? 'INSERT INTO users (username, password_hash, created_at) VALUES ($1, $2, CURRENT_TIMESTAMP)'
-        : 'INSERT INTO users (username, password_hash, created_at) VALUES (?, ?, CURRENT_TIMESTAMP)',
-      [username, hashedPassword]
+        ? 'INSERT INTO users (username, password_hash, email, created_at) VALUES ($1, $2, $3, CURRENT_TIMESTAMP)'
+        : 'INSERT INTO users (username, password_hash, email, created_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)',
+      [username, hashedPassword, email || null]
     );
 
     // Add to in-memory store
@@ -484,7 +496,8 @@ app.post('/register', authLimiter, async (req, res) => {
       id: nextUserId++,
       username: username,
       password: hashedPassword,
-      role: 'user'
+      role: 'user',
+      email: email || null
     });
 
     console.log('New user registered:', username);
@@ -492,6 +505,26 @@ app.post('/register', authLimiter, async (req, res) => {
   } catch (err) {
     console.error('Registration failed:', err);
     res.status(500).json({ message: 'Registration failed' });
+  }
+});
+
+// allow existing users to add/update email address
+app.post('/update-email', verifyHttpToken, async (req, res) => {
+  const { email } = req.body;
+  if (!email || !/^[\w.+\-]+@[\w\-]+\.[A-Za-z]{2,}$/.test(email)) {
+    return res.status(400).json({ message: 'Valid email required' });
+  }
+  try {
+    // ensure uniqueness
+    const conflict = await dbAll('SELECT username FROM users WHERE email = ? AND username != ?', [email, req.user.username]);
+    if (conflict && conflict.length > 0) {
+      return res.status(400).json({ message: 'Email already in use' });
+    }
+    await dbRun('UPDATE users SET email = ? WHERE username = ?', [email, req.user.username]);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('Failed to update email:', err);
+    res.status(500).json({ message: 'Could not update email' });
   }
 });
 
@@ -579,7 +612,7 @@ app.post('/login', authLimiter, async (req, res) => {
     { expiresIn: process.env.JWT_EXPIRY || '30d' }
   );
 
-  // Upsert user profile in database with current location
+  // Upsert user profile in database with current location (email is unchanged here)
   const upsertUser = async () => {
     try {
       if (USE_POSTGRES) {
@@ -591,9 +624,11 @@ app.post('/login', authLimiter, async (req, res) => {
           [user.username, user.password, finalState || null, finalLga || null]
         );
       } else {
+        // SQLite: avoid wiping email by only updating state and lga
         await dbRun(
-          `INSERT OR REPLACE INTO users (username, password_hash, state, lga, created_at)
-           VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)`,
+          `INSERT INTO users (username, password_hash, state, lga, created_at)
+           VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+           ON CONFLICT(username) DO UPDATE SET state = excluded.state, lga = excluded.lga`,
           [user.username, user.password, finalState || null, finalLga || null]
         );
       }
@@ -603,10 +638,19 @@ app.post('/login', authLimiter, async (req, res) => {
   };
   upsertUser();
 
+  // fetch email for response
+  let email = null;
+  try {
+    const rec = await dbAll('SELECT email FROM users WHERE username = ? LIMIT 1', [user.username]);
+    if (rec && rec[0]) email = rec[0].email || null;
+  } catch (e) {
+    console.error('Error fetching email for login response', e);
+  }
+
   res.status(200).json({
     auth: true,
     token: token,
-    user: { id: user.id, username: user.username, role: user.role || 'user', state: finalState, lga: finalLga }
+    user: { id: user.id, username: user.username, role: user.role || 'user', state: finalState, lga: finalLga, email }
   });
 });
 
@@ -675,7 +719,7 @@ app.post('/interact', verifyHttpToken, async (req, res) => {
 app.get('/profile', verifyHttpToken, async (req, res) => {
   try {
     const profile = await dbAll(
-      'SELECT username, state, lga, created_at FROM users WHERE username = ? LIMIT 1',
+      'SELECT username, email, state, lga, created_at FROM users WHERE username = ? LIMIT 1',
       [req.user.username]
     );
 
