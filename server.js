@@ -242,15 +242,17 @@ async function ensureSchema() {
     await dbRun(createUsersTable);
     await dbRun(createInteractionsTable);
     await dbRun(createFlaggedMessagesTable);
-    // make sure email column exists on users (migration for existing DB)
+    // make sure email and reset columns exist on users (migration for existing DB)
     if (USE_POSTGRES) {
-      await dbRun("ALTER TABLE users ADD COLUMN IF NOT EXISTS email TEXT UNIQUE; ");
+      await dbRun("ALTER TABLE users ADD COLUMN IF NOT EXISTS email TEXT UNIQUE;");
       await dbRun("ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_token TEXT;");
       await dbRun("ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_expires TIMESTAMP;");
     } else {
-      await dbRun("ALTER TABLE users ADD COLUMN IF NOT EXISTS email TEXT UNIQUE;");
-      await dbRun("ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_token TEXT;");
-      await dbRun("ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_expires DATETIME;");
+      // sqlite: add plain column then index to enforce uniqueness
+      try { await dbRun("ALTER TABLE users ADD COLUMN email TEXT;"); } catch (e) { /* ignore if exists */ }
+      try { await dbRun("CREATE UNIQUE INDEX IF NOT EXISTS users_email_idx ON users(email);"); } catch (e) { /* ignore */ }
+      try { await dbRun("ALTER TABLE users ADD COLUMN reset_token TEXT;"); } catch (e) { /* ignore if exists */ }
+      try { await dbRun("ALTER TABLE users ADD COLUMN reset_expires DATETIME;"); } catch (e) { /* ignore if exists */ }
     }
     console.log('Database schema initialized successfully');
   } catch (err) {
