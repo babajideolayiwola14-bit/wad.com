@@ -275,22 +275,41 @@ if (showLogin) {
     });
 }
 
-// Forgot password flow: ask for username and request reset
+// Forgot password flow: ask for username and optionally email
 const forgotLink = document.getElementById('forgot-link');
 if (forgotLink) {
     forgotLink.addEventListener('click', async (e) => {
         e.preventDefault();
         const username = prompt('Enter your username to request a password reset:');
         if (!username) return;
+        // always give user a chance to supply an email (may be stored already)
+        let email = prompt('If you have an email address on file, enter it now (leave blank if unknown):');
         try {
+            const body = { username: username.trim() };
+            if (email) body.email = email.trim();
             const res = await fetch('/auth/request-reset', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username: username.trim() })
+                body: JSON.stringify(body)
             });
             const data = await res.json();
-            if (data.token) {
-                // Dev mode: show token so developer can use reset.html
+            if (res.status === 400 && data.message && data.message.includes('No email')) {
+                // server explicitly wants an email because none is recorded
+                const extra = prompt('No email was found for that username. Please enter one to receive reset instructions:');
+                if (extra) {
+                    // retry once with provided email
+                    await fetch('/auth/request-reset', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ username: username.trim(), email: extra.trim() })
+                    }).then(r => r.json()).then(d => {
+                        if (d.token) alert('DEV reset token: ' + d.token);
+                        else alert(d.message || 'If that account exists an email will be sent.');
+                    }).catch(() => {
+                        alert('Error requesting reset.');
+                    });
+                }
+            } else if (data.token) {
                 alert('DEV reset token: ' + data.token + '\nUse reset.html to finish reset.');
             } else {
                 alert(data.message || 'If that account exists an email will be sent.');

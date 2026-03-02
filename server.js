@@ -664,7 +664,8 @@ app.post('/login', authLimiter, async (req, res) => {
 
 // Request password reset (requires username) - sends email if configured
 app.post('/auth/request-reset', async (req, res) => {
-  const { username } = req.body || {};
+  // allow supplying an email for users who don't have one yet
+  const { username, email: suppliedEmail } = req.body || {};
   if (!username) return res.status(400).json({ message: 'Username required' });
   try {
     const rows = await dbAll('SELECT username, email FROM users WHERE username = ? LIMIT 1', [username]);
@@ -673,8 +674,21 @@ app.post('/auth/request-reset', async (req, res) => {
       return res.json({ message: 'If that account exists an email will be sent' });
     }
     const user = rows[0];
+
+    // if no email on record, see if caller provided one
     if (!user.email) {
-      return res.json({ message: 'If that account exists an email will be sent' });
+      if (suppliedEmail) {
+        // update the user row before proceeding
+        await dbRun(USE_POSTGRES
+          ? 'UPDATE users SET email = $1 WHERE username = $2'
+          : 'UPDATE users SET email = ? WHERE username = ?',
+          [suppliedEmail, username]
+        );
+        user.email = suppliedEmail;
+      } else {
+        // tell the client to supply an email or log in and add one
+        return res.status(400).json({ message: 'No email on file. Please provide one or login to add it.' });
+      }
     }
 
     const token = crypto.randomBytes(32).toString('hex');
