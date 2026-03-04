@@ -72,6 +72,22 @@ button[type="submit"]:hover {
     text-align: center;
 }
 
+/* smaller footer text for login/register links */
+.login-footer {
+    text-align: center;
+    margin-top: 15px;
+    font-size: 13px;
+    line-height: 1.3;
+}
+.login-footer a {
+    color: #007bff;
+    text-decoration: none;
+    margin: 0 4px;
+}
+.login-footer a:hover {
+    text-decoration: underline;
+}
+
 .chat-container {
     background-color: white;
     padding: 20px;
