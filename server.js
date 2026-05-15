@@ -481,7 +481,9 @@ app.post('/register', authLimiter, async (req, res) => {
   try {
     // Check if user already exists
     const existing = await dbAll(
-      'SELECT username FROM users WHERE username = ? LIMIT 1',
+      USE_POSTGRES
+        ? 'SELECT username FROM users WHERE username = $1 LIMIT 1'
+        : 'SELECT username FROM users WHERE username = ? LIMIT 1',
       [username]
     );
 
@@ -498,15 +500,6 @@ app.post('/register', authLimiter, async (req, res) => {
         : 'INSERT INTO users (username, password_hash, email, created_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)',
       [username, hashedPassword, email || null]
     );
-
-    // Add to in-memory store
-    users.push({
-      id: nextUserId++,
-      username: username,
-      password: hashedPassword,
-      role: 'user',
-      email: email || null
-    });
 
     console.log('New user registered:', username);
     res.status(200).json({ message: 'Registration successful' });
@@ -579,87 +572,89 @@ app.post('/login', authLimiter, async (req, res) => {
   const normalizedState = String(state).trim();
   const normalizedLga = String(lga).trim();
 
-  let user = users.find(u => u.username === username);
-  let finalState = normalizedState;
-  let finalLga = normalizedLga;
-  
-  if (!user) {
-    // Auto-register with password strength requirement
-    if (!isValidPassword(password)) {
-      return res.status(400).json({ 
-        message: 'Password must be at least 8 characters with uppercase, lowercase, and numbers' 
-      });
-    }
-    const hashedPassword = bcrypt.hashSync(password, 10);
-    user = {
-      id: nextUserId++,
-      username: username,
-      password: hashedPassword,
-      role: 'user'
-    };
-    users.push(user);
-    console.log('New user registered:', username);
-  } else {
-    // Verify password for existing user
-    const passwordIsValid = bcrypt.compareSync(password, user.password);
-    if (!passwordIsValid) {
-      console.warn(`Failed login attempt for user: ${username}`);
-      return res.status(401).json({ message: 'Invalid username or password' });
-    }
-
-    // Check if user is banned
-    const dbUser = await dbAll('SELECT banned FROM users WHERE username = ? LIMIT 1', [username]);
-    if (dbUser.length > 0 && dbUser[0].banned === 1) {
-      return res.status(403).json({ message: 'Your account has been banned. Contact admin.' });
-    }
-  }
-
-  const token = jwt.sign(
-    { id: user.id, username: user.username, role: user.role || 'user', state: finalState, lga: finalLga },
-    SECRET_KEY,
-    { expiresIn: process.env.JWT_EXPIRY || '30d' }
-  );
-
-  // Upsert user profile in database with current location (email is unchanged here)
-  const upsertUser = async () => {
-    try {
-      if (USE_POSTGRES) {
-        await dbRun(
-          `INSERT INTO users (username, password_hash, state, lga, created_at)
-           VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP)
-           ON CONFLICT (username) 
-           DO UPDATE SET state = $3, lga = $4`,
-          [user.username, user.password, finalState || null, finalLga || null]
-        );
-      } else {
-        // SQLite: avoid wiping email by only updating state and lga
-        await dbRun(
-          `INSERT INTO users (username, password_hash, state, lga, created_at)
-           VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
-           ON CONFLICT(username) DO UPDATE SET state = excluded.state, lga = excluded.lga`,
-          [user.username, user.password, finalState || null, finalLga || null]
-        );
-      }
-    } catch (err) {
-      console.error('Failed to upsert user profile:', err);
-    }
-  };
-  upsertUser();
-
-  // fetch email for response
-  let email = null;
   try {
-    const rec = await dbAll('SELECT email FROM users WHERE username = ? LIMIT 1', [user.username]);
-    if (rec && rec[0]) email = rec[0].email || null;
-  } catch (e) {
-    console.error('Error fetching email for login response', e);
-  }
+    // Query database for existing user
+    const dbUsers = await dbAll(
+      USE_POSTGRES
+        ? 'SELECT id, username, password_hash, email, role, banned FROM users WHERE username = $1 LIMIT 1'
+        : 'SELECT id, username, password_hash, email, role, banned FROM users WHERE username = ? LIMIT 1',
+      [username]
+    );
 
-  res.status(200).json({
-    auth: true,
-    token: token,
-    user: { id: user.id, username: user.username, role: user.role || 'user', state: finalState, lga: finalLga, email }
-  });
+    let user = dbUsers && dbUsers.length > 0 ? dbUsers[0] : null;
+
+    if (user) {
+      // Verify password for existing user
+      const passwordIsValid = bcrypt.compareSync(password, user.password_hash);
+      if (!passwordIsValid) {
+        console.warn(`Failed login attempt for user: ${username}`);
+        return res.status(401).json({ message: 'Invalid username or password' });
+      }
+
+      // Check if user is banned
+      if (user.banned === 1) {
+        return res.status(403).json({ message: 'Your account has been banned. Contact admin.' });
+      }
+    } else {
+      // New user - auto-register with password strength requirement
+      if (!isValidPassword(password)) {
+        return res.status(400).json({ 
+          message: 'Password must be at least 8 characters with uppercase, lowercase, and numbers' 
+        });
+      }
+      
+      const hashedPassword = bcrypt.hashSync(password, 10);
+      
+      // Insert new user into database
+      await dbRun(
+        USE_POSTGRES
+          ? 'INSERT INTO users (username, password_hash, state, lga, created_at) VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP)'
+          : 'INSERT INTO users (username, password_hash, state, lga, created_at) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)',
+        [username, hashedPassword, normalizedState || null, normalizedLga || null]
+      );
+      
+      console.log('New user registered:', username);
+      user = { username, role: 'user' };
+    }
+
+    // Update user location in database
+    await dbRun(
+      USE_POSTGRES
+        ? 'UPDATE users SET state = $1, lga = $2 WHERE username = $3'
+        : 'UPDATE users SET state = ?, lga = ? WHERE username = ?',
+      [normalizedState || null, normalizedLga || null, username]
+    );
+
+    // Generate JWT token
+    const token = jwt.sign(
+      { username: user.username, role: user.role || 'user', state: normalizedState, lga: normalizedLga },
+      SECRET_KEY,
+      { expiresIn: process.env.JWT_EXPIRY || '30d' }
+    );
+
+    // Fetch email for response
+    let email = null;
+    try {
+      const emailRec = await dbAll(
+        USE_POSTGRES
+          ? 'SELECT email FROM users WHERE username = $1 LIMIT 1'
+          : 'SELECT email FROM users WHERE username = ? LIMIT 1',
+        [username]
+      );
+      if (emailRec && emailRec[0]) email = emailRec[0].email || null;
+    } catch (e) {
+      console.error('Error fetching email for login response', e);
+    }
+
+    res.status(200).json({
+      auth: true,
+      token: token,
+      user: { username: user.username, role: user.role || 'user', state: normalizedState, lga: normalizedLga, email }
+    });
+  } catch (err) {
+    console.error('Login failed:', err);
+    res.status(500).json({ message: 'Login failed' });
+  }
 });
 
 // Request password reset (requires username) - sends email if configured
@@ -668,7 +663,12 @@ app.post('/auth/request-reset', async (req, res) => {
   const { username, email: suppliedEmail } = req.body || {};
   if (!username) return res.status(400).json({ message: 'Username required' });
   try {
-    const rows = await dbAll('SELECT username, email FROM users WHERE username = ? LIMIT 1', [username]);
+    const rows = await dbAll(
+      USE_POSTGRES
+        ? 'SELECT username, email FROM users WHERE username = $1 LIMIT 1'
+        : 'SELECT username, email FROM users WHERE username = ? LIMIT 1',
+      [username]
+    );
     if (!rows || rows.length === 0) {
       // Do not reveal whether username exists
       return res.json({ message: 'If that account exists an email will be sent' });
@@ -679,25 +679,28 @@ app.post('/auth/request-reset', async (req, res) => {
     if (!user.email) {
       if (suppliedEmail) {
         // update the user row before proceeding
-        await dbRun(USE_POSTGRES
-          ? 'UPDATE users SET email = $1 WHERE username = $2'
-          : 'UPDATE users SET email = ? WHERE username = ?',
+        await dbRun(
+          USE_POSTGRES
+            ? 'UPDATE users SET email = $1 WHERE username = $2'
+            : 'UPDATE users SET email = ? WHERE username = ?',
           [suppliedEmail, username]
         );
         user.email = suppliedEmail;
       } else {
         // tell the client to supply an email or log in and add one
-        return res.status(400).json({ message: 'No email on file. Please provide one or login to add it.' });
+        return res.status(400).json({ message: 'No email on file. Please provide one or login to add it.', requireEmail: true });
       }
     }
 
-    const token = crypto.randomBytes(32).toString('hex');
-    const expires = new Date(Date.now() + 60 * 60 * 1000).toISOString(); // 1 hour
-
-    await dbRun(USE_POSTGRES
-      ? 'UPDATE users SET reset_token = $1, reset_expires = $2 WHERE username = $3'
-      : 'UPDATE users SET reset_token = ?, reset_expires = ? WHERE username = ?',
-      [token, expires, username]
+    // Generate reset token and store in database
+    const token = require('crypto').randomBytes(32).toString('hex');
+    const expiresIn = new Date(Date.now() + 3600000); // 1 hour from now
+    
+    await dbRun(
+      USE_POSTGRES
+        ? 'UPDATE users SET reset_token = $1, reset_expires = $2 WHERE username = $3'
+        : 'UPDATE users SET reset_token = ?, reset_expires = ? WHERE username = ?',
+      [token, expiresIn, username]
     );
 
     // Send email if SMTP configured

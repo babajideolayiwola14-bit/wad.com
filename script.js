@@ -293,11 +293,10 @@ if (forgotLink) {
                 body: JSON.stringify(body)
             });
             const data = await res.json();
-            if (res.status === 400 && data.message && data.message.includes('No email')) {
-                // server explicitly wants an email because none is recorded
-                const extra = prompt('No email was found for that username. Please enter one to receive reset instructions:');
+            if (res.status === 400 && data.requireEmail) {
+                // server requires an email address, prompt immediately without alert
+                const extra = prompt(data.message + '\nEnter email:');
                 if (extra) {
-                    // retry once with provided email
                     await fetch('/auth/request-reset', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -323,3 +322,35 @@ if (forgotLink) {
 
 // Attempt to restore session on page load (persists login after refresh)
 resumeSession();
+
+// Password visibility toggle for login form
+const togglePasswordBtn = document.getElementById('toggle-password');
+if (togglePasswordBtn) {
+    togglePasswordBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        const passwordInput = document.getElementById('password');
+        if (passwordInput.type === 'password') {
+            passwordInput.type = 'text';
+            togglePasswordBtn.textContent = '🙈';
+        } else {
+            passwordInput.type = 'password';
+            togglePasswordBtn.textContent = '👁️';
+        }
+    });
+}
+
+// Password visibility toggle for register form
+const toggleRegPasswordBtn = document.getElementById('toggle-reg-password');
+if (toggleRegPasswordBtn) {
+    toggleRegPasswordBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        const regPasswordInput = document.getElementById('reg-password');
+        if (regPasswordInput.type === 'password') {
+            regPasswordInput.type = 'text';
+            toggleRegPasswordBtn.textContent = '🙈';
+        } else {
+            regPasswordInput.type = 'password';
+            toggleRegPasswordBtn.textContent = '👁️';
+        }
+    });
+}

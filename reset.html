@@ -24,11 +24,17 @@
       </div>
       <div class="form-group">
         <label for="password">New password</label>
-        <input type="password" id="password" name="password" placeholder="New password" required>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <input type="password" id="password" name="password" placeholder="New password" required>
+          <button type="button" id="toggle-reset-password" style="padding: 6px 10px; background: none; border: 1px solid #ccc; border-radius: 4px; cursor: pointer; font-size: 14px;">👁️</button>
+        </div>
       </div>
       <div class="form-group">
         <label for="password2">Confirm new password</label>
-        <input type="password" id="password2" name="password2" placeholder="Confirm new password" required>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <input type="password" id="password2" name="password2" placeholder="Confirm new password" required>
+          <button type="button" id="toggle-reset-password2" style="padding: 6px 10px; background: none; border: 1px solid #ccc; border-radius: 4px; cursor: pointer; font-size: 14px;">👁️</button>
+        </div>
       </div>
       <button type="submit">Set new password</button>
     </form>
@@ -81,6 +87,37 @@
           msg.textContent = 'Server error. Try again later.';
         }
       });
+
+      // Password visibility toggles
+      const toggleResetPassword = document.getElementById('toggle-reset-password');
+      if (toggleResetPassword) {
+        toggleResetPassword.addEventListener('click', (e) => {
+          e.preventDefault();
+          const passwordInput = document.getElementById('password');
+          if (passwordInput.type === 'password') {
+            passwordInput.type = 'text';
+            toggleResetPassword.textContent = '🙈';
+          } else {
+            passwordInput.type = 'password';
+            toggleResetPassword.textContent = '👁️';
+          }
+        });
+      }
+
+      const toggleResetPassword2 = document.getElementById('toggle-reset-password2');
+      if (toggleResetPassword2) {
+        toggleResetPassword2.addEventListener('click', (e) => {
+          e.preventDefault();
+          const passwordInput2 = document.getElementById('password2');
+          if (passwordInput2.type === 'password') {
+            passwordInput2.type = 'text';
+            toggleResetPassword2.textContent = '🙈';
+          } else {
+            passwordInput2.type = 'password';
+            toggleResetPassword2.textContent = '👁️';
+          }
+        });
+      }
     });
   </script>
 </body>

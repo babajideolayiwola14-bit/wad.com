@@ -16,7 +16,10 @@
             </div>
             <div class="form-group">
                 <label for="password">Password:</label>
-                <input type="password" id="password" name="password" autocomplete="current-password" required>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <input type="password" id="password" name="password" autocomplete="current-password" required>
+                    <button type="button" id="toggle-password" style="padding: 6px 10px; background: none; border: 1px solid #ccc; border-radius: 4px; cursor: pointer; font-size: 14px;">👁️</button>
+                </div>
             </div>
             <div class="form-group">
                 <label>What do you want done?</label>
@@ -55,7 +58,10 @@
             </div>
             <div class="form-group">
                 <label for="reg-password">Password:</label>
-                <input type="password" id="reg-password" name="password" autocomplete="new-password" required>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <input type="password" id="reg-password" name="password" autocomplete="new-password" required>
+                    <button type="button" id="toggle-reg-password" style="padding: 6px 10px; background: none; border: 1px solid #ccc; border-radius: 4px; cursor: pointer; font-size: 14px;">👁️</button>
+                </div>
             </div>
             <button type="submit">Register</button>
         </form>
