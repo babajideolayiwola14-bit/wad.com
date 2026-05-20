@@ -721,7 +721,11 @@ app.post('/login', authLimiter, async (req, res) => {
     console.error('Message:', err.message);
     console.error('Stack:', err.stack);
     console.error('Full error:', err);
-    res.status(500).json({ message: 'Login failed', error: err.message });
+    res.status(500).json({ 
+      message: 'Login failed', 
+      error: err.message,
+      details: process.env.NODE_ENV === 'production' ? 'See server logs' : err.stack
+    });
   }
 });
 

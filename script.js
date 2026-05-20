@@ -169,6 +169,11 @@ document.getElementById('login-form').addEventListener('submit', async function(
     }
 
     try {
+        console.log('=== LOGIN ATTEMPT ===');
+        console.log('Username:', username);
+        console.log('State:', state);
+        console.log('LGA:', lga);
+        
         const response = await fetch('/login', {
             method: 'POST',
             headers: {
@@ -178,6 +183,9 @@ document.getElementById('login-form').addEventListener('submit', async function(
         });
 
         const data = await response.json();
+        console.log('=== LOGIN RESPONSE ===');
+        console.log('Status:', response.status);
+        console.log('Response data:', JSON.stringify(data, null, 2));
 
         if (response.ok) {
             // Store token in localStorage
@@ -209,7 +217,8 @@ document.getElementById('login-form').addEventListener('submit', async function(
                 }, 1000);
             }
         } else {
-            errorMessage.textContent = data.message;
+            console.error('Login failed:', data);
+            errorMessage.textContent = data.message || 'Login failed';
             errorMessage.style.color = 'red';
         }
     } catch (error) {
