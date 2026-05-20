@@ -584,14 +584,17 @@ app.post('/login', authLimiter, async (req, res) => {
     // Query database for existing user
     const dbUsers = await dbAll(
       USE_POSTGRES
-        ? 'SELECT username, password_hash, email, role, banned FROM users WHERE username = $1 LIMIT 1'
-        : 'SELECT username, password_hash, email, role, banned FROM users WHERE username = ? LIMIT 1',
+        ? 'SELECT username, password_hash, email FROM users WHERE username = $1 LIMIT 1'
+        : 'SELECT username, password_hash, email FROM users WHERE username = ? LIMIT 1',
       [username]
     );
 
     let user = dbUsers && dbUsers.length > 0 ? dbUsers[0] : null;
 
     if (user) {
+      // Set defaults for role and banned if columns don't exist yet
+      user.role = user.role || 'user';
+      user.banned = user.banned || 0;
       // Verify password for existing user
       const passwordIsValid = bcrypt.compareSync(password, user.password_hash);
       if (!passwordIsValid) {
