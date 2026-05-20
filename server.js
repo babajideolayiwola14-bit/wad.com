@@ -96,14 +96,20 @@ async function dbRun(sql, params = []) {
       pgSql = pgSql.replace(/;?\s*$/, ' RETURNING id');
     }
     
+    console.log('[dbRun] SQL:', pgSql, 'Params:', params);
+    
     const client = await pool.connect();
     try {
       const result = await client.query(pgSql, params);
+      console.log('[dbRun] Result:', result.rowCount, 'rows affected');
       return { 
         lastID: result.rows[0]?.id, 
         changes: result.rowCount, 
         rows: result.rows 
       };
+    } catch (err) {
+      console.error('[dbRun] Query error:', err.message);
+      throw err;
     } finally {
       client.release();
     }
@@ -123,10 +129,17 @@ async function dbAll(sql, params = []) {
     let pgSql = sql;
     let count = 0;
     pgSql = pgSql.replace(/\?/g, () => `$${++count}`);
+    
+    console.log('[dbAll] SQL:', pgSql, 'Params:', params);
+    
     const client = await pool.connect();
     try {
       const result = await client.query(pgSql, params);
+      console.log('[dbAll] Result rows:', result.rows?.length || 0);
       return result.rows || [];
+    } catch (err) {
+      console.error('[dbAll] Query error:', err.message);
+      throw err;
     } finally {
       client.release();
     }
@@ -577,6 +590,9 @@ app.post('/update-email', verifyHttpToken, async (req, res) => {
 
 // Login endpoint (auto-registers new users) with security
 app.post('/login', authLimiter, async (req, res) => {
+  console.log('=== LOGIN REQUEST RECEIVED ===');
+  console.log('Request body:', JSON.stringify(req.body));
+  
   const { username, password, state, lga } = req.body;
 
   // Validate inputs
@@ -701,8 +717,10 @@ app.post('/login', authLimiter, async (req, res) => {
       user: { username: user.username, role: user.role || 'user', state: normalizedState, lga: normalizedLga, email }
     });
   } catch (err) {
-    console.error('Login failed:', err.message || err);
+    console.error('=== LOGIN ERROR ===');
+    console.error('Message:', err.message);
     console.error('Stack:', err.stack);
+    console.error('Full error:', err);
     res.status(500).json({ message: 'Login failed', error: err.message });
   }
 });
