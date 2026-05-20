@@ -467,6 +467,40 @@ const upload = multer({ storage });
 const users = [];
 let nextUserId = 1;
 
+// Health check endpoint - tests database connectivity
+app.get('/health', async (req, res) => {
+  try {
+    // Test database connection
+    let tableExists = false;
+    let errorMsg = null;
+    
+    try {
+      const result = await dbAll(
+        USE_POSTGRES
+          ? "SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_name = 'users')"
+          : "SELECT name FROM sqlite_master WHERE type='table' AND name='users'",
+        []
+      );
+      tableExists = USE_POSTGRES ? result[0]?.exists === true : result.length > 0;
+    } catch (tableErr) {
+      errorMsg = tableErr.message;
+    }
+    
+    res.json({
+      ok: true,
+      database: USE_POSTGRES ? 'PostgreSQL' : 'SQLite',
+      tablesReady: tableExists,
+      error: errorMsg
+    });
+  } catch (err) {
+    console.error('Health check failed:', err.message);
+    res.status(500).json({
+      ok: false,
+      error: err.message
+    });
+  }
+});
+
 // Registration endpoint
 app.post('/register', authLimiter, async (req, res) => {
   const { username, password, email } = req.body;
