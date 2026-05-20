@@ -248,11 +248,14 @@ async function ensureSchema() {
     await dbRun(createFlaggedMessagesTable);
     // make sure email, reset, role, and banned columns exist on users (migration for existing DB)
     if (USE_POSTGRES) {
-      await dbRun("ALTER TABLE users ADD COLUMN IF NOT EXISTS email TEXT UNIQUE;");
-      await dbRun("ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_token TEXT;");
-      await dbRun("ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_expires TIMESTAMP;");
-      await dbRun("ALTER TABLE users ADD COLUMN IF NOT EXISTS role TEXT DEFAULT 'user';");
-      await dbRun("ALTER TABLE users ADD COLUMN IF NOT EXISTS banned INTEGER DEFAULT 0;");
+      try { await dbRun("ALTER TABLE users ADD COLUMN IF NOT EXISTS email TEXT;"); } catch (e) { console.log('Email column add skipped:', e.message); }
+      try { await dbRun("ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_token TEXT;"); } catch (e) { console.log('Reset token add skipped:', e.message); }
+      try { await dbRun("ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_expires TIMESTAMP;"); } catch (e) { console.log('Reset expires add skipped:', e.message); }
+      try { await dbRun("ALTER TABLE users ADD COLUMN IF NOT EXISTS role TEXT;"); } catch (e) { console.log('Role column add skipped:', e.message); }
+      try { await dbRun("ALTER TABLE users ADD COLUMN IF NOT EXISTS banned INTEGER;"); } catch (e) { console.log('Banned column add skipped:', e.message); }
+      // Set defaults for existing rows
+      try { await dbRun("UPDATE users SET role = 'user' WHERE role IS NULL;"); } catch (e) { console.log('Role default skipped:', e.message); }
+      try { await dbRun("UPDATE users SET banned = 0 WHERE banned IS NULL;"); } catch (e) { console.log('Banned default skipped:', e.message); }
     } else {
       // sqlite: add plain column then index to enforce uniqueness
       try { await dbRun("ALTER TABLE users ADD COLUMN email TEXT;"); } catch (e) { /* ignore if exists */ }
@@ -512,8 +515,9 @@ app.post('/register', authLimiter, async (req, res) => {
     console.log('New user registered:', username);
     res.status(200).json({ message: 'Registration successful' });
   } catch (err) {
-    console.error('Registration failed:', err);
-    res.status(500).json({ message: 'Registration failed' });
+    console.error('Registration failed:', err.message || err);
+    console.error('Stack:', err.stack);
+    res.status(500).json({ message: 'Registration failed', error: err.message });
   }
 });
 
@@ -663,8 +667,9 @@ app.post('/login', authLimiter, async (req, res) => {
       user: { username: user.username, role: user.role || 'user', state: normalizedState, lga: normalizedLga, email }
     });
   } catch (err) {
-    console.error('Login failed:', err);
-    res.status(500).json({ message: 'Login failed' });
+    console.error('Login failed:', err.message || err);
+    console.error('Stack:', err.stack);
+    res.status(500).json({ message: 'Login failed', error: err.message });
   }
 });
 
