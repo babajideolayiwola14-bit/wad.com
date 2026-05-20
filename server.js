@@ -90,10 +90,17 @@ async function dbRun(sql, params = []) {
     let count = 0;
     pgSql = pgSql.replace(/\?/g, () => `$${++count}`);
     
-    // For INSERT statements, add RETURNING id to get the inserted ID
+    // For INSERT statements, add appropriate RETURNING clause
     const isInsert = /^\s*INSERT\s+INTO/i.test(pgSql);
     if (isInsert && !/RETURNING/i.test(pgSql)) {
-      pgSql = pgSql.replace(/;?\s*$/, ' RETURNING id');
+      // Check which table to determine the correct RETURNING column
+      if (/INSERT\s+INTO\s+users/i.test(pgSql)) {
+        // users table uses username as primary key, not id
+        pgSql = pgSql.replace(/;?\s*$/, ' RETURNING username');
+      } else {
+        // Other tables use id as primary key
+        pgSql = pgSql.replace(/;?\s*$/, ' RETURNING id');
+      }
     }
     
     console.log('[dbRun] SQL:', pgSql, 'Params:', params);
@@ -103,7 +110,7 @@ async function dbRun(sql, params = []) {
       const result = await client.query(pgSql, params);
       console.log('[dbRun] Result:', result.rowCount, 'rows affected');
       return { 
-        lastID: result.rows[0]?.id, 
+        lastID: result.rows[0]?.id || result.rows[0]?.username, 
         changes: result.rowCount, 
         rows: result.rows 
       };
