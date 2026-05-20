@@ -632,21 +632,16 @@ app.post('/login', authLimiter, async (req, res) => {
     });
   }
 
-  // Regular user registration/login
-  if (!state || !lga) {
-    return res.status(400).json({ message: 'State and LGA are required to login' });
-  }
-
   // Normalize location input to reduce casing/spacing mismatches
-  const normalizedState = String(state).trim();
-  const normalizedLga = String(lga).trim();
+  let normalizedState = state ? String(state).trim() : null;
+  let normalizedLga = lga ? String(lga).trim() : null;
 
   try {
     // Query database for existing user
     const dbUsers = await dbAll(
       USE_POSTGRES
-        ? 'SELECT username, password_hash, email FROM users WHERE username = $1 LIMIT 1'
-        : 'SELECT username, password_hash, email FROM users WHERE username = ? LIMIT 1',
+        ? 'SELECT username, password_hash, email, state, lga FROM users WHERE username = $1 LIMIT 1'
+        : 'SELECT username, password_hash, email, state, lga FROM users WHERE username = ? LIMIT 1',
       [username]
     );
 
@@ -667,12 +662,25 @@ app.post('/login', authLimiter, async (req, res) => {
       if (user.banned === 1) {
         return res.status(403).json({ message: 'Your account has been banned. Contact admin.' });
       }
+      
+      // Use stored state/lga if not provided in request
+      if (!normalizedState && user.state) {
+        normalizedState = String(user.state).trim();
+      }
+      if (!normalizedLga && user.lga) {
+        normalizedLga = String(user.lga).trim();
+      }
     } else {
       // New user - auto-register with password strength requirement
       if (!isValidPassword(password)) {
         return res.status(400).json({ 
           message: 'Password must be at least 8 characters with uppercase, lowercase, and numbers' 
         });
+      }
+      
+      // For new users, state and lga are required
+      if (!normalizedState || !normalizedLga) {
+        return res.status(400).json({ message: 'State and LGA are required for new registrations' });
       }
       
       const hashedPassword = bcrypt.hashSync(password, 10);
@@ -689,13 +697,15 @@ app.post('/login', authLimiter, async (req, res) => {
       user = { username, role: 'user' };
     }
 
-    // Update user location in database
-    await dbRun(
-      USE_POSTGRES
-        ? 'UPDATE users SET state = $1, lga = $2 WHERE username = $3'
-        : 'UPDATE users SET state = ?, lga = ? WHERE username = ?',
-      [normalizedState || null, normalizedLga || null, username]
-    );
+    // Update user location in database only if provided
+    if (normalizedState && normalizedLga) {
+      await dbRun(
+        USE_POSTGRES
+          ? 'UPDATE users SET state = $1, lga = $2 WHERE username = $3'
+          : 'UPDATE users SET state = ?, lga = ? WHERE username = ?',
+        [normalizedState || null, normalizedLga || null, username]
+      );
+    }
 
     // Generate JWT token
     const token = jwt.sign(

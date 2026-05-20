@@ -68,10 +68,20 @@ async function initializeApp() {
 }
 
 function setupEventListeners() {
-    // Modal toggle
+    // Modal toggle - use mousedown which fires even on disabled elements
     const messageInput = document.getElementById('message');
-    messageInput.addEventListener('click', () => {
+    const formWrapper = document.getElementById('message-form-wrapper');
+    
+    messageInput.addEventListener('mousedown', (e) => {
         if (!isAuthenticated) {
+            e.preventDefault();
+            openLoginModal();
+        }
+    });
+    
+    formWrapper.addEventListener('click', (e) => {
+        if (!isAuthenticated && e.target === messageInput) {
+            e.preventDefault();
             openLoginModal();
         }
     });
