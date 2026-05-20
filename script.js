@@ -1,3 +1,4 @@
+// Nigeria States and LGAs Data
 const nigeriaData = {
     "Abia": ["Aba North", "Aba South", "Arochukwu", "Bende", "Ikwuano", "Isiala Ngwa North", "Isiala Ngwa South", "Isuikwuato", "Obi Ngwa", "Ohafia", "Osisioma Ngwa", "Ugwunagbo", "Ukwa East", "Ukwa West", "Umuahia North", "Umuahia South", "Umu Nneochi"],
     "Adamawa": ["Demsa", "Fufure", "Ganye", "Guyuk", "Girei", "Gombi", "Hong", "Jada", "Lamurde", "Madagali", "Maiha", "Mayo Belwa", "Michika", "Mubi North", "Mubi South", "Numan", "Shelleng", "Song", "Toungo", "Yola North", "Yola South"],
@@ -38,20 +39,114 @@ const nigeriaData = {
     "Federal Capital Territory": ["Abaji", "Abuja Municipal Area Council", "Kwali", "Kuje", "Bwari", "Gwagwalada"]
 };
 
+// Global state
+let isAuthenticated = false;
+let currentUser = null;
+let socket = null;
+
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', () => {
+    initializeApp();
+});
+
+async function initializeApp() {
+    // Populate state selects
+    populateStates();
+    
+    // Check for existing session
+    const token = localStorage.getItem('token');
+    if (token) {
+        await resumeSession();
+    } else {
+        // Load messages in read-only mode
+        loadMessagesReadOnly();
+        setupGuestUI();
+    }
+    
+    // Setup event listeners
+    setupEventListeners();
+}
+
+function setupEventListeners() {
+    // Modal toggle
+    const messageInput = document.getElementById('message');
+    messageInput.addEventListener('click', () => {
+        if (!isAuthenticated) {
+            openLoginModal();
+        }
+    });
+    
+    // Modal close buttons
+    document.getElementById('close-modal').addEventListener('click', closeLoginModal);
+    document.getElementById('close-register-modal').addEventListener('click', closeRegisterModal);
+    
+    // Modal toggle links
+    document.getElementById('toggle-register').addEventListener('click', (e) => {
+        e.preventDefault();
+        closeLoginModal();
+        openRegisterModal();
+    });
+    
+    document.getElementById('toggle-login').addEventListener('click', (e) => {
+        e.preventDefault();
+        closeRegisterModal();
+        openLoginModal();
+    });
+    
+    // Login form
+    document.getElementById('login-form').addEventListener('submit', handleLogin);
+    
+    // Register form
+    document.getElementById('register-form').addEventListener('submit', handleRegister);
+    
+    // Register state change
+    document.getElementById('register-state').addEventListener('change', populateRegisterLGAs);
+    
+    // Message form
+    document.getElementById('message-form-wrapper').addEventListener('submit', handleSendMessage);
+    
+    // Logout button
+    document.getElementById('logout').addEventListener('click', handleLogout);
+}
+
+// Modal functions
+function openLoginModal() {
+    document.getElementById('login-modal').classList.remove('hidden');
+    document.getElementById('login-form').reset();
+    document.getElementById('login-error').classList.remove('show');
+}
+
+function closeLoginModal() {
+    document.getElementById('login-modal').classList.add('hidden');
+}
+
+function openRegisterModal() {
+    document.getElementById('register-modal').classList.remove('hidden');
+    document.getElementById('register-form').reset();
+    document.getElementById('register-error').classList.remove('show');
+}
+
+function closeRegisterModal() {
+    document.getElementById('register-modal').classList.add('hidden');
+}
+
+// Populate states in register form
 function populateStates() {
-    const stateSelect = document.getElementById('state');
+    const select = document.getElementById('register-state');
+    select.innerHTML = '<option value="">Select State</option>';
     Object.keys(nigeriaData).forEach(state => {
         const option = document.createElement('option');
         option.value = state;
         option.textContent = state;
-        stateSelect.appendChild(option);
+        select.appendChild(option);
     });
 }
 
-function populateLGAs() {
-    const stateSelect = document.getElementById('state');
-    const lgaSelect = document.getElementById('lga');
+function populateRegisterLGAs() {
+    const stateSelect = document.getElementById('register-state');
+    const lgaSelect = document.getElementById('register-lga');
     const selectedState = stateSelect.value;
+    
     lgaSelect.innerHTML = '<option value="">Select LGA</option>';
     if (selectedState && nigeriaData[selectedState]) {
         nigeriaData[selectedState].forEach(lga => {
@@ -63,303 +158,275 @@ function populateLGAs() {
     }
 }
 
-document.addEventListener('DOMContentLoaded', populateStates);
-document.getElementById('state').addEventListener('change', populateLGAs);
-
-function startChat(userState, userLga) {
-    const loginContainer = document.getElementById('login-container');
-    const chatContainer = document.getElementById('chat-container');
-    if (loginContainer) loginContainer.style.display = 'none';
-    if (chatContainer) chatContainer.style.display = 'block';
-
-    const headerState = userState || localStorage.getItem('state');
-    const headerLga = userLga || localStorage.getItem('lga');
-    const chatHeader = document.getElementById('chat-header');
-    if (chatHeader && headerState && headerLga) {
-        chatHeader.textContent = `${headerState}, ${headerLga}`;
+// Load messages in read-only mode
+async function loadMessagesReadOnly() {
+    try {
+        const res = await fetch('/messages');
+        if (!res.ok) throw new Error('Failed to load messages');
+        
+        const data = await res.json();
+        const messages = data.messages || [];
+        
+        displayMessages(messages);
+    } catch (err) {
+        console.error('Failed to load messages:', err);
     }
+}
 
-    // Avoid double-loading chat scripts
-    if (window.chatLoaded || window.chatScriptsLoading) return;
+function displayMessages(messages) {
+    const container = document.getElementById('chat-messages');
+    container.innerHTML = '';
+    
+    messages.forEach(msg => {
+        const msgEl = createMessageElement(msg);
+        container.appendChild(msgEl);
+    });
+    
+    // Scroll to bottom
+    container.scrollTop = container.scrollHeight;
+}
 
-    window.chatScriptsLoading = true;
-    const socketScript = document.createElement('script');
-    socketScript.src = '/socket.io/socket.io.js';
-    socketScript.onload = () => {
-        const chatScript = document.createElement('script');
-        chatScript.src = 'chat.js';
-        chatScript.onload = () => {
-            window.chatScriptsLoading = false;
-        };
-        chatScript.onerror = () => {
-            window.chatScriptsLoading = false;
-        };
-        document.head.appendChild(chatScript);
-    };
-    socketScript.onerror = () => {
-        window.chatScriptsLoading = false;
-    };
-    document.head.appendChild(socketScript);
+function createMessageElement(msg) {
+    const div = document.createElement('div');
+    div.className = 'message-item';
+    
+    const userSpan = document.createElement('span');
+    userSpan.className = 'message-user';
+    userSpan.textContent = msg.username || 'Unknown';
+    userSpan.style.fontWeight = 'bold';
+    
+    const textSpan = document.createElement('span');
+    textSpan.className = 'message-text';
+    textSpan.textContent = msg.message;
+    textSpan.style.whiteSpace = 'pre-wrap';
+    
+    const timeSpan = document.createElement('span');
+    timeSpan.className = 'message-time';
+    timeSpan.textContent = new Date(msg.created_at).toLocaleString();
+    timeSpan.style.fontSize = '12px';
+    timeSpan.style.color = '#666';
+    timeSpan.style.marginLeft = 'auto';
+    
+    div.appendChild(userSpan);
+    div.appendChild(textSpan);
+    div.appendChild(timeSpan);
+    
+    return div;
+}
+
+function setupGuestUI() {
+    document.getElementById('guest-badge').classList.remove('hidden');
+    document.getElementById('user-info').classList.add('hidden');
+    document.getElementById('message').disabled = true;
+    document.getElementById('send-btn').disabled = true;
+}
+
+// Authentication handlers
+async function handleLogin(e) {
+    e.preventDefault();
+    
+    const username = document.getElementById('login-username').value.trim();
+    const password = document.getElementById('login-password').value.trim();
+    const errorEl = document.getElementById('login-error');
+    
+    try {
+        const res = await fetch('/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password })
+        });
+        
+        const data = await res.json();
+        
+        if (!res.ok) {
+            throw new Error(data.message || 'Login failed');
+        }
+        
+        // Store token and user info
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('user', JSON.stringify(data.user));
+        if (data.user.state) localStorage.setItem('state', data.user.state);
+        if (data.user.lga) localStorage.setItem('lga', data.user.lga);
+        
+        // Switch to authenticated mode
+        isAuthenticated = true;
+        currentUser = data.user;
+        
+        closeLoginModal();
+        setupAuthenticatedUI();
+        connectSocket();
+        
+        // Reload messages from socket
+        loadMessagesAuthenticated();
+        
+    } catch (err) {
+        errorEl.textContent = err.message;
+        errorEl.classList.add('show');
+    }
+}
+
+async function handleRegister(e) {
+    e.preventDefault();
+    
+    const username = document.getElementById('register-username').value.trim();
+    const password = document.getElementById('register-password').value.trim();
+    const state = document.getElementById('register-state').value;
+    const lga = document.getElementById('register-lga').value;
+    const errorEl = document.getElementById('register-error');
+    
+    // Validate password
+    if (password.length < 8 || !/[A-Z]/.test(password) || !/[a-z]/.test(password) || !/[0-9]/.test(password)) {
+        errorEl.textContent = 'Password must be at least 8 characters with uppercase, lowercase, and numbers';
+        errorEl.classList.add('show');
+        return;
+    }
+    
+    try {
+        const res = await fetch('/register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password, state, lga })
+        });
+        
+        const data = await res.json();
+        
+        if (!res.ok) {
+            throw new Error(data.message || 'Registration failed');
+        }
+        
+        errorEl.textContent = 'Registration successful! Please login.';
+        errorEl.style.color = 'green';
+        errorEl.classList.add('show');
+        
+        setTimeout(() => {
+            closeRegisterModal();
+            openLoginModal();
+        }, 1500);
+        
+    } catch (err) {
+        errorEl.textContent = err.message;
+        errorEl.classList.add('show');
+    }
 }
 
 async function resumeSession() {
-    const token = localStorage.getItem('token');
-    if (!token) return;
-    
-    // Immediately hide login and show chat to prevent flash
-    const loginContainer = document.getElementById('login-container');
-    const chatContainer = document.getElementById('chat-container');
-    if (loginContainer) loginContainer.style.display = 'none';
-    if (chatContainer) chatContainer.style.display = 'block';
-    
     try {
+        const token = localStorage.getItem('token');
         const res = await fetch('/profile', {
             headers: { 'Authorization': `Bearer ${token}` }
         });
-        if (!res.ok) throw new Error('unauthorized');
-        const data = await res.json();
-        const profile = data.profile || {};
-        const mergedUser = { ...(JSON.parse(localStorage.getItem('user') || '{}')), ...profile };
-        localStorage.setItem('user', JSON.stringify(mergedUser));
-        if (profile.state) localStorage.setItem('state', profile.state);
-        if (profile.lga) localStorage.setItem('lga', profile.lga);
-        startChat(profile.state, profile.lga);
-
-        // Prompt for email if not set
-        if (!profile.email) {
-            const addr = prompt('Please enter your email address (required for password recovery):');
-            if (addr) {
-                try {
-                    const ures = await fetch('/update-email', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                        body: JSON.stringify({ email: addr.trim() })
-                    });
-                    if (ures.ok) {
-                        alert('Email saved. You can reset your password using it if needed.');
-                    } else {
-                        const msg = (await ures.json()).message || 'Failed to save email';
-                        alert(msg);
-                    }
-                } catch(e) { console.error('Email update failed', e); }
-            }
+        
+        if (!res.ok) {
+            throw new Error('Session expired');
         }
+        
+        const data = await res.json();
+        currentUser = data.profile;
+        isAuthenticated = true;
+        
+        setupAuthenticatedUI();
+        connectSocket();
+        loadMessagesAuthenticated();
+        
     } catch (err) {
-        // Token invalid, show login again
+        console.log('Session resume failed:', err);
         localStorage.removeItem('token');
         localStorage.removeItem('user');
-        localStorage.removeItem('state');
-        localStorage.removeItem('lga');
-        if (loginContainer) loginContainer.style.display = 'block';
-        if (chatContainer) chatContainer.style.display = 'none';
+        loadMessagesReadOnly();
+        setupGuestUI();
     }
 }
 
-document.getElementById('login-form').addEventListener('submit', async function(event) {
-    event.preventDefault();
-    const username = document.getElementById('username').value;
-    const password = document.getElementById('password').value;
-    const state = document.getElementById('state').value;
-    const lga = document.getElementById('lga').value;
-    const errorMessage = document.getElementById('error-message');
+function setupAuthenticatedUI() {
+    document.getElementById('guest-badge').classList.add('hidden');
+    document.getElementById('user-info').classList.remove('hidden');
+    document.getElementById('current-user').textContent = currentUser.username;
+    document.getElementById('message').disabled = false;
+    document.getElementById('send-btn').disabled = false;
+    document.getElementById('message').placeholder = 'Type a message...';
+}
 
-    if (!errorMessage) {
-        console.error('Error message element not found');
-        return;
-    }
+function connectSocket() {
+    if (socket) return;
+    
+    const token = localStorage.getItem('token');
+    socket = io({
+        auth: { token }
+    });
+    
+    socket.on('connect', () => {
+        console.log('Connected to server');
+    });
+    
+    socket.on('new-message', (msg) => {
+        addMessageToUI(msg);
+    });
+    
+    socket.on('disconnect', () => {
+        console.log('Disconnected from server');
+    });
+}
 
+function loadMessagesAuthenticated() {
+    // Messages will be loaded via socket.io after connection
+    // For now, reload from REST
+    loadMessagesReadOnly();
+}
+
+function addMessageToUI(msg) {
+    const container = document.getElementById('chat-messages');
+    const msgEl = createMessageElement(msg);
+    container.appendChild(msgEl);
+    container.scrollTop = container.scrollHeight;
+}
+
+async function handleSendMessage(e) {
+    e.preventDefault();
+    
+    const msgInput = document.getElementById('message');
+    const message = msgInput.value.trim();
+    
+    if (!message) return;
+    
     try {
-        console.log('=== LOGIN ATTEMPT ===');
-        console.log('Username:', username);
-        console.log('State:', state);
-        console.log('LGA:', lga);
-        
-        const response = await fetch('/login', {
+        const token = localStorage.getItem('token');
+        const res = await fetch('/send-message', {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
             },
-            body: JSON.stringify({ username, password, state, lga })
+            body: JSON.stringify({ message })
         });
-
-        const data = await response.json();
-        console.log('=== LOGIN RESPONSE ===');
-        console.log('Status:', response.status);
-        console.log('Response data:', JSON.stringify(data, null, 2));
-
-        if (response.ok) {
-            // Store token in localStorage
-            localStorage.setItem('token', data.token);
-            localStorage.setItem('user', JSON.stringify(data.user));
-            localStorage.setItem('state', state);
-            localStorage.setItem('lga', lga);
-            errorMessage.textContent = 'Login successful! Loading chat...';
-            errorMessage.style.color = 'green';
-            startChat(state, lga);
-            // if email missing ask immediately
-            if (!data.user.email) {
-                setTimeout(async () => {
-                    const addr = prompt('Please enter your email address (required for password recovery):');
-                    if (addr) {
-                        try {
-                            const ures = await fetch('/update-email', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${data.token}` },
-                                body: JSON.stringify({ email: addr.trim() })
-                            });
-                            if (ures.ok) alert('Email saved.');
-                            else {
-                                const msg = (await ures.json()).message || 'Could not save email';
-                                alert(msg);
-                            }
-                        } catch(e){console.error(e);}
-                    }
-                }, 1000);
-            }
-        } else {
-            console.error('Login failed:', data);
-            errorMessage.textContent = data.message || 'Login failed';
-            errorMessage.style.color = 'red';
-        }
-    } catch (error) {
-        errorMessage.textContent = 'An error occurred. Please try again.';
-        errorMessage.style.color = 'red';
-    }
-});
-
-// Registration form handler
-const registerForm = document.getElementById('register-form');
-if (registerForm) {
-    registerForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const username = document.getElementById('reg-username').value;
-        const email = document.getElementById('reg-email').value;
-        const password = document.getElementById('reg-password').value;
-        const registerMessage = document.getElementById('register-message');
-
-        try {
-            const response = await fetch('/register', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username, email, password })
-            });
-
-            const data = await response.json();
-
-            if (response.ok) {
-                registerMessage.textContent = 'Registration successful! Please login.';
-                registerMessage.style.color = 'green';
-                setTimeout(() => {
-                    document.getElementById('register-container').style.display = 'none';
-                    document.getElementById('login-container').style.display = 'block';
-                }, 1500);
-            } else {
-                registerMessage.textContent = data.message;
-                registerMessage.style.color = 'red';
-            }
-        } catch (error) {
-            registerMessage.textContent = 'An error occurred. Please try again.';
-            registerMessage.style.color = 'red';
-        }
-    });
-}
-
-// Toggle between login and register
-const showRegister = document.getElementById('show-register');
-const showLogin = document.getElementById('show-login');
-
-if (showRegister) {
-    showRegister.addEventListener('click', (e) => {
-        e.preventDefault();
-        document.getElementById('login-container').style.display = 'none';
-        document.getElementById('register-container').style.display = 'block';
-    });
-}
-
-if (showLogin) {
-    showLogin.addEventListener('click', (e) => {
-        e.preventDefault();
-        document.getElementById('register-container').style.display = 'none';
-        document.getElementById('login-container').style.display = 'block';
-    });
-}
-
-// Forgot password flow: ask for username and optionally email
-const forgotLink = document.getElementById('forgot-link');
-if (forgotLink) {
-    forgotLink.addEventListener('click', async (e) => {
-        e.preventDefault();
-        const username = prompt('Enter your username to request a password reset:');
-        if (!username) return;
-        // always give user a chance to supply an email (may be stored already)
-        let email = prompt('If you have an email address on file, enter it now (leave blank if unknown):');
-        try {
-            const body = { username: username.trim() };
-            if (email) body.email = email.trim();
-            const res = await fetch('/auth/request-reset', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(body)
-            });
+        
+        if (!res.ok) {
             const data = await res.json();
-            if (res.status === 400 && data.requireEmail) {
-                // server requires an email address, prompt immediately without alert
-                const extra = prompt(data.message + '\nEnter email:');
-                if (extra) {
-                    await fetch('/auth/request-reset', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ username: username.trim(), email: extra.trim() })
-                    }).then(r => r.json()).then(d => {
-                        if (d.token) alert('DEV reset token: ' + d.token);
-                        else alert(d.message || 'If that account exists an email will be sent.');
-                    }).catch(() => {
-                        alert('Error requesting reset.');
-                    });
-                }
-            } else if (data.token) {
-                alert('DEV reset token: ' + data.token + '\nUse reset.html to finish reset.');
-            } else {
-                alert(data.message || 'If that account exists an email will be sent.');
-            }
-        } catch (err) {
-            console.error('Request reset failed', err);
-            alert('Failed to request password reset. Try again later.');
+            alert(data.message || 'Failed to send message');
+            return;
         }
-    });
+        
+        msgInput.value = '';
+        
+    } catch (err) {
+        console.error('Error sending message:', err);
+        alert('Failed to send message');
+    }
 }
 
-// Attempt to restore session on page load (persists login after refresh)
-resumeSession();
-
-// Password visibility toggle for login form
-const togglePasswordBtn = document.getElementById('toggle-password');
-if (togglePasswordBtn) {
-    togglePasswordBtn.addEventListener('click', (e) => {
-        e.preventDefault();
-        const passwordInput = document.getElementById('password');
-        if (passwordInput.type === 'password') {
-            passwordInput.type = 'text';
-            togglePasswordBtn.textContent = '🙈';
-        } else {
-            passwordInput.type = 'password';
-            togglePasswordBtn.textContent = '👁️';
-        }
-    });
-}
-
-// Password visibility toggle for register form
-const toggleRegPasswordBtn = document.getElementById('toggle-reg-password');
-if (toggleRegPasswordBtn) {
-    toggleRegPasswordBtn.addEventListener('click', (e) => {
-        e.preventDefault();
-        const regPasswordInput = document.getElementById('reg-password');
-        if (regPasswordInput.type === 'password') {
-            regPasswordInput.type = 'text';
-            toggleRegPasswordBtn.textContent = '🙈';
-        } else {
-            regPasswordInput.type = 'password';
-            toggleRegPasswordBtn.textContent = '👁️';
-        }
-    });
+function handleLogout() {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    localStorage.removeItem('state');
+    localStorage.removeItem('lga');
+    
+    isAuthenticated = false;
+    currentUser = null;
+    
+    if (socket) {
+        socket.disconnect();
+        socket = null;
+    }
+    
+    setupGuestUI();
+    loadMessagesReadOnly();
 }

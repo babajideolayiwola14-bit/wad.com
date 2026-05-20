@@ -954,6 +954,73 @@ app.get('/profile', verifyHttpToken, async (req, res) => {
   }
 });
 
+// Get all messages (unauthenticated endpoint for read-only viewing)
+app.get('/messages', async (req, res) => {
+  try {
+    const messages = await dbAll(
+      `SELECT id, username, state, lga, message, parent_id, attachment_url, attachment_type, created_at
+       FROM messages
+       WHERE parent_id IS NULL
+       ORDER BY created_at ASC
+       LIMIT 1000`,
+      []
+    );
+    
+    res.json({ messages });
+  } catch (err) {
+    console.error('Failed to fetch messages:', err);
+    res.status(500).json({ message: 'Failed to fetch messages' });
+  }
+});
+
+// Send message (authenticated endpoint)
+app.post('/send-message', verifyHttpToken, async (req, res) => {
+  const { message } = req.body;
+  
+  if (!message || !message.trim()) {
+    return res.status(400).json({ message: 'Message cannot be empty' });
+  }
+  
+  try {
+    const username = req.user.username;
+    const state = req.user.state || '';
+    const lga = req.user.lga || '';
+    
+    // Validate message is action-oriented
+    const validation = isActionStatement(message);
+    if (!validation.valid) {
+      return res.status(400).json({ message: validation.reason });
+    }
+    
+    // Insert message
+    const result = await dbRun(
+      `INSERT INTO messages (username, message, state, lga)
+       VALUES (?, ?, ?, ?)`,
+      [username, message.trim(), state, lga]
+    );
+    
+    // Emit via socket.io
+    const messageId = result && result.lastID ? result.lastID : 0;
+    const newMsg = {
+      id: messageId,
+      username,
+      message: message.trim(),
+      state,
+      lga,
+      created_at: new Date().toISOString()
+    };
+    
+    if (state && lga) {
+      io.to(`${state}_${lga}`).emit('new-message', newMsg);
+    }
+    
+    res.json({ success: true, message: newMsg });
+  } catch (err) {
+    console.error('Failed to send message:', err);
+    res.status(500).json({ message: 'Failed to send message' });
+  }
+});
+
 // Update user location
 app.post('/update-location', verifyHttpToken, async (req, res) => {
   const { state, lga } = req.body;
@@ -1603,15 +1670,19 @@ app.post('/upload', verifyHttpToken, upload.single('file'), async (req, res) => 
   }
 });
 
-// Socket.io authentication middleware
+// Socket.io authentication middleware - allow unauthenticated connections for read-only access
 io.use((socket, next) => {
   const token = socket.handshake.auth.token;
   if (!token) {
-    return next(new Error('Authentication error'));
+    // Allow unauthenticated connections (read-only mode)
+    socket.user = null;
+    return next();
   }
   jwt.verify(token, SECRET_KEY, (err, decoded) => {
     if (err) {
-      return next(new Error('Authentication error'));
+      // Invalid token, but allow as guest
+      socket.user = null;
+      return next();
     }
     socket.user = decoded;
     next();
@@ -1623,9 +1694,12 @@ const userSockets = new Map(); // Track active sockets per username
 
 io.on('connection', (socket) => {
   try {
-    if (!socket.user || !socket.user.username) {
-      console.error('Socket connected without valid user data');
-      socket.disconnect(true);
+    const isGuest = !socket.user || !socket.user.username;
+    
+    if (isGuest) {
+      console.log('Guest connected from', socket.handshake.address);
+      // Guests can only view, not post
+      // They don't join any rooms and won't receive new messages
       return;
     }
     
