@@ -178,6 +178,8 @@ async function ensureSchema() {
       email TEXT UNIQUE,
       state TEXT,
       lga TEXT,
+      role TEXT DEFAULT 'user',
+      banned INTEGER DEFAULT 0,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
   ` : `
@@ -187,6 +189,8 @@ async function ensureSchema() {
       email TEXT UNIQUE,
       state TEXT,
       lga TEXT,
+      role TEXT DEFAULT 'user',
+      banned INTEGER DEFAULT 0,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
   `;
@@ -242,17 +246,21 @@ async function ensureSchema() {
     await dbRun(createUsersTable);
     await dbRun(createInteractionsTable);
     await dbRun(createFlaggedMessagesTable);
-    // make sure email and reset columns exist on users (migration for existing DB)
+    // make sure email, reset, role, and banned columns exist on users (migration for existing DB)
     if (USE_POSTGRES) {
       await dbRun("ALTER TABLE users ADD COLUMN IF NOT EXISTS email TEXT UNIQUE;");
       await dbRun("ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_token TEXT;");
       await dbRun("ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_expires TIMESTAMP;");
+      await dbRun("ALTER TABLE users ADD COLUMN IF NOT EXISTS role TEXT DEFAULT 'user';");
+      await dbRun("ALTER TABLE users ADD COLUMN IF NOT EXISTS banned INTEGER DEFAULT 0;");
     } else {
       // sqlite: add plain column then index to enforce uniqueness
       try { await dbRun("ALTER TABLE users ADD COLUMN email TEXT;"); } catch (e) { /* ignore if exists */ }
       try { await dbRun("CREATE UNIQUE INDEX IF NOT EXISTS users_email_idx ON users(email);"); } catch (e) { /* ignore */ }
       try { await dbRun("ALTER TABLE users ADD COLUMN reset_token TEXT;"); } catch (e) { /* ignore if exists */ }
       try { await dbRun("ALTER TABLE users ADD COLUMN reset_expires DATETIME;"); } catch (e) { /* ignore if exists */ }
+      try { await dbRun("ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'user';"); } catch (e) { /* ignore if exists */ }
+      try { await dbRun("ALTER TABLE users ADD COLUMN banned INTEGER DEFAULT 0;"); } catch (e) { /* ignore if exists */ }
     }
     console.log('Database schema initialized successfully');
   } catch (err) {
@@ -576,8 +584,8 @@ app.post('/login', authLimiter, async (req, res) => {
     // Query database for existing user
     const dbUsers = await dbAll(
       USE_POSTGRES
-        ? 'SELECT id, username, password_hash, email, role, banned FROM users WHERE username = $1 LIMIT 1'
-        : 'SELECT id, username, password_hash, email, role, banned FROM users WHERE username = ? LIMIT 1',
+        ? 'SELECT username, password_hash, email, role, banned FROM users WHERE username = $1 LIMIT 1'
+        : 'SELECT username, password_hash, email, role, banned FROM users WHERE username = ? LIMIT 1',
       [username]
     );
 
