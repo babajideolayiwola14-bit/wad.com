@@ -50,9 +50,6 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 async function initializeApp() {
-    // Populate state selects
-    populateStates();
-    
     // Check for existing session
     const token = localStorage.getItem('token');
     if (token) {
@@ -85,6 +82,29 @@ function setupEventListeners() {
             openLoginModal();
         }
     });
+    
+    // Password toggle buttons
+    const loginPasswordToggle = document.getElementById('login-password-toggle');
+    if (loginPasswordToggle) {
+        loginPasswordToggle.addEventListener('click', (e) => {
+            e.preventDefault();
+            const pwInput = document.getElementById('login-password');
+            const type = pwInput.type === 'password' ? 'text' : 'password';
+            pwInput.type = type;
+            loginPasswordToggle.textContent = type === 'password' ? '👁' : '👁‍🗨';
+        });
+    }
+    
+    const registerPasswordToggle = document.getElementById('register-password-toggle');
+    if (registerPasswordToggle) {
+        registerPasswordToggle.addEventListener('click', (e) => {
+            e.preventDefault();
+            const pwInput = document.getElementById('register-password');
+            const type = pwInput.type === 'password' ? 'text' : 'password';
+            pwInput.type = type;
+            registerPasswordToggle.textContent = type === 'password' ? '👁' : '👁‍🗨';
+        });
+    }
     
     // Modal close buttons
     document.getElementById('close-modal').addEventListener('click', closeLoginModal);
