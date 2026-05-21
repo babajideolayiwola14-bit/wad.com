@@ -134,6 +134,10 @@ function openRegisterModal() {
     document.getElementById('register-modal').classList.remove('hidden');
     document.getElementById('register-form').reset();
     document.getElementById('register-error').classList.remove('show');
+    
+    // Repopulate states and reset LGAs
+    populateStates();
+    populateRegisterLGAs();
 }
 
 function closeRegisterModal() {
