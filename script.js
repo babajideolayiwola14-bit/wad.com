@@ -83,15 +83,28 @@ function setupEventListeners() {
         }
     });
     
-    // Password toggle buttons
+    // Password toggle buttons - toggle visibility between password and text inputs
     const loginPasswordToggle = document.getElementById('login-password-toggle');
     if (loginPasswordToggle) {
         loginPasswordToggle.addEventListener('click', (e) => {
             e.preventDefault();
-            const pwInput = document.getElementById('login-password');
-            const type = pwInput.type === 'password' ? 'text' : 'password';
-            pwInput.type = type;
-            loginPasswordToggle.textContent = type === 'password' ? '👁' : '👁‍🗨';
+            const pwHidden = document.getElementById('login-password');
+            const pwVisible = document.getElementById('login-password-visible');
+            
+            if (pwHidden.style.display === 'none') {
+                // Currently showing text, switch to password
+                pwVisible.style.display = 'none';
+                pwHidden.style.display = 'block';
+                pwHidden.focus();
+                loginPasswordToggle.textContent = '👁';
+            } else {
+                // Currently showing password, switch to text
+                pwVisible.value = pwHidden.value;
+                pwVisible.style.display = 'block';
+                pwHidden.style.display = 'none';
+                pwVisible.focus();
+                loginPasswordToggle.textContent = '👁‍🗨';
+            }
         });
     }
     
@@ -99,12 +112,46 @@ function setupEventListeners() {
     if (registerPasswordToggle) {
         registerPasswordToggle.addEventListener('click', (e) => {
             e.preventDefault();
-            const pwInput = document.getElementById('register-password');
-            const type = pwInput.type === 'password' ? 'text' : 'password';
-            pwInput.type = type;
-            registerPasswordToggle.textContent = type === 'password' ? '👁' : '👁‍🗨';
+            const pwHidden = document.getElementById('register-password');
+            const pwVisible = document.getElementById('register-password-visible');
+            
+            if (pwHidden.style.display === 'none') {
+                // Currently showing text, switch to password
+                pwVisible.style.display = 'none';
+                pwHidden.style.display = 'block';
+                pwHidden.focus();
+                registerPasswordToggle.textContent = '👁';
+            } else {
+                // Currently showing password, switch to text
+                pwVisible.value = pwHidden.value;
+                pwVisible.style.display = 'block';
+                pwHidden.style.display = 'none';
+                pwVisible.focus();
+                registerPasswordToggle.textContent = '👁‍🗨';
+            }
         });
     }
+    
+    // Sync password inputs when typing
+    const loginPasswordInputs = document.querySelectorAll('#login-password, #login-password-visible');
+    loginPasswordInputs.forEach(input => {
+        input.addEventListener('input', (e) => {
+            const otherInput = e.target.id === 'login-password' ? 
+                document.getElementById('login-password-visible') : 
+                document.getElementById('login-password');
+            otherInput.value = e.target.value;
+        });
+    });
+    
+    const registerPasswordInputs = document.querySelectorAll('#register-password, #register-password-visible');
+    registerPasswordInputs.forEach(input => {
+        input.addEventListener('input', (e) => {
+            const otherInput = e.target.id === 'register-password' ? 
+                document.getElementById('register-password-visible') : 
+                document.getElementById('register-password');
+            otherInput.value = e.target.value;
+        });
+    });
     
     // Modal close buttons
     document.getElementById('close-modal').addEventListener('click', closeLoginModal);
