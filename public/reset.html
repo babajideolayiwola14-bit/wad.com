@@ -63,7 +63,7 @@
         const p = document.getElementById('password').value;
         const p2 = document.getElementById('password2').value;
         if (!t) { msg.style.color = 'red'; msg.textContent = 'Token is required.'; return; }
-        if (!p || p.length < 6) { msg.style.color = 'red'; msg.textContent = 'Password must be at least 6 characters.'; return; }
+        if (!p || p.length < 4) { msg.style.color = 'red'; msg.textContent = 'Password must be at least 4 characters.'; return; }
         if (p !== p2) { msg.style.color = 'red'; msg.textContent = 'Passwords do not match.'; return; }
 
         try {

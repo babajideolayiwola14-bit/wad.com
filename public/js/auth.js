@@ -327,8 +327,8 @@ async function handleRegister(e) {
         return;
     }
 
-    if (password.length < 8 || !/[A-Z]/.test(password) || !/[a-z]/.test(password) || !/[0-9]/.test(password)) {
-        showFormError(errorEl, 'Password must be at least 8 characters with uppercase, lowercase, and numbers');
+    if (password.length < 4) {
+        showFormError(errorEl, 'Password must be at least 4 characters');
         return;
     }
     

@@ -176,17 +176,19 @@ function verifyHttpToken(req, res, next) {
 }
 
 // Security helper functions
+const MIN_PASSWORD_LENGTH = 4;
+
 function isValidUsername(username) {
   // 3-30 alphanumeric characters and underscores only
   return /^[a-zA-Z0-9_]{3,30}$/.test(username);
 }
 
 function isValidPassword(password) {
-  // At least 8 characters with uppercase, lowercase, and numbers
-  return password.length >= 8 && 
-         /[A-Z]/.test(password) && 
-         /[a-z]/.test(password) && 
-         /[0-9]/.test(password);
+  return typeof password === 'string' && password.length >= MIN_PASSWORD_LENGTH;
+}
+
+function passwordRequirementMessage() {
+  return `Password must be at least ${MIN_PASSWORD_LENGTH} characters`;
 }
 
 function verifyPassword(plainPassword, storedHash) {
@@ -277,7 +279,7 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage });
 
-// In-memory user store (for demo purposes - auto-registration on first login)
+// In-memory user store (legacy — users are persisted in PostgreSQL)
 const users = [];
 let nextUserId = 1;
 
@@ -330,9 +332,7 @@ app.post('/register', authLimiter, async (req, res) => {
   }
 
   if (!isValidPassword(password)) {
-    return res.status(400).json({ 
-      message: 'Password must be at least 8 characters with uppercase, lowercase, and numbers' 
-    });
+    return res.status(400).json({ message: passwordRequirementMessage() });
   }
 
   try {
@@ -388,7 +388,7 @@ app.post('/update-email', verifyHttpToken, async (req, res) => {
   }
 });
 
-// Login endpoint (auto-registers new users) with security
+// Login endpoint — existing users only (register separately)
 app.post('/login', authLimiter, async (req, res) => {
   console.log('=== LOGIN REQUEST RECEIVED ===');
   console.log('Request body:', JSON.stringify(req.body));
@@ -460,26 +460,11 @@ app.post('/login', authLimiter, async (req, res) => {
         token,
         user: { username: trimmedUsername, role: 'admin', state: 'Admin', lga: 'Admin' }
       });
-    } else {
-      if (!isValidPassword(password)) {
-        return res.status(400).json({
-          message: 'Password must be at least 8 characters with uppercase, lowercase, and numbers'
-        });
-      }
-
-      if (!normalizedState || !normalizedLga) {
-        return res.status(400).json({ message: 'State and LGA are required for new registrations' });
-      }
-
-      const hashedPassword = bcrypt.hashSync(password, 10);
-      await dbRun(
-        'INSERT INTO users (username, password_hash, state, lga, created_at) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)',
-        [trimmedUsername, hashedPassword, normalizedState, normalizedLga]
-      );
-
-      console.log('New user registered:', trimmedUsername);
-      user = { username: trimmedUsername, role: 'user' };
     }
+
+    return res.status(401).json({
+      message: 'Invalid username or password. Use Register if you do not have an account yet.'
+    });
 
     if (normalizedState && normalizedLga) {
       await dbRun('UPDATE users SET state = ?, lga = ? WHERE username = ?', [normalizedState, normalizedLga, user.username]);
@@ -621,7 +606,7 @@ app.get('/auth/verify-reset', async (req, res) => {
 app.post('/auth/reset', async (req, res) => {
   const { token, password } = req.body || {};
   if (!token || !password) return res.status(400).json({ message: 'Token and password required' });
-  if (!isValidPassword(password)) return res.status(400).json({ message: 'Password does not meet requirements' });
+  if (!isValidPassword(password)) return res.status(400).json({ message: passwordRequirementMessage() });
   try {
     const rows = await dbAll('SELECT username, reset_expires FROM users WHERE reset_token = ? LIMIT 1', [token]);
     if (!rows || rows.length === 0) return res.status(400).json({ message: 'Invalid or expired token' });

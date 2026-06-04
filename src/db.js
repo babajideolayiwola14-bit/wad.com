@@ -133,10 +133,62 @@ async function ensureSchema() {
   console.log('PostgreSQL schema ready');
 }
 
+async function normalizeUserAccounts() {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const { rows: groups } = await client.query(`
+      SELECT LOWER(username) AS ukey, ARRAY_AGG(username ORDER BY created_at ASC) AS usernames
+      FROM users
+      GROUP BY LOWER(username)
+      HAVING COUNT(*) > 1
+    `);
+
+    for (const group of groups) {
+      const canonical = group.usernames[0];
+      const duplicates = group.usernames.slice(1);
+      for (const dup of duplicates) {
+        await client.query('UPDATE messages SET username = $1 WHERE username = $2', [canonical, dup]);
+        await client.query('UPDATE flagged_messages SET username = $1 WHERE username = $2', [canonical, dup]);
+        await client.query('UPDATE interactions SET username = $1 WHERE username = $2', [canonical, dup]);
+        await client.query('DELETE FROM users WHERE username = $1', [dup]);
+        console.log(`Merged duplicate user "${dup}" into "${canonical}"`);
+      }
+    }
+
+    // Remove empty test accounts created by accidental auto-registration
+    const { rowCount } = await client.query(`
+      DELETE FROM users u
+      WHERE u.role IS DISTINCT FROM 'admin'
+        AND NOT EXISTS (SELECT 1 FROM messages m WHERE m.username = u.username)
+        AND (
+          u.username ~* '^testuser'
+          OR u.username = 'TestUser999'
+        )
+    `);
+    if (rowCount > 0) {
+      console.log(`Removed ${rowCount} unused test account(s)`);
+    }
+
+    await client.query(`
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username_lower ON users (LOWER(username))
+    `);
+
+    await client.query('COMMIT');
+  } catch (e) {
+    await client.query('ROLLBACK');
+    console.log('User normalization skipped:', e.message);
+  } finally {
+    client.release();
+  }
+}
+
 async function initDb() {
   console.log('Connecting to PostgreSQL…');
   await pool.query('SELECT 1');
   await ensureSchema();
+  await normalizeUserAccounts();
 }
 
-module.exports = { pool, dbRun, dbAll, ensureSchema, initDb, ROOT };
+module.exports = { pool, dbRun, dbAll, ensureSchema, initDb, normalizeUserAccounts, ROOT };
