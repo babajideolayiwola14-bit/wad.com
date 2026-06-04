@@ -9,7 +9,6 @@ window.App = (function () {
     }
 
     function setupAuthenticatedChrome(user) {
-        document.getElementById('guest-badge')?.classList.add('hidden');
         document.getElementById('auth-actions-guest')?.classList.add('hidden');
         document.getElementById('guest-location-bar')?.classList.add('hidden');
         document.getElementById('user-info')?.classList.remove('hidden');

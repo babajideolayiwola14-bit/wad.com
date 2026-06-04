@@ -7,13 +7,13 @@ Visitors can browse the chat **without logging in**. Writing (post, reply, attac
 | Action | Guest | Logged in |
 |--------|-------|-----------|
 | Open site | Chat visible immediately | Chat visible |
-| Pick State/LGA | Yes (`guest-location-bar`) | From account / login |
-| Browse messages | Yes (`GET /feed/public`) | Yes (`GET /feed`) |
+| Pick State/LGA | Yes — feed loads when LGA is selected | From account / login |
+| View messages | Yes (`GET /feed/public`, auto on LGA pick) | Yes (`GET /feed`) |
 | Search messages | Yes (`GET /search/public`) | Yes (`GET /search`) |
 | Live updates | Yes (socket `guest:join`) | Yes (socket auth) |
 | Type / send / attach | No → opens login modal | Yes |
 | Reply / share / delete | No → opens login modal | Yes |
-| Profile / mybit | Read-only placeholder | Full |
+| Profile / mybit | Hidden for guests | Full |
 
 ## Frontend modules
 

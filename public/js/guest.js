@@ -22,7 +22,7 @@ window.Guest = (function () {
         if (!box) return;
 
         if (!state || !lga) {
-            box.innerHTML = '<p class="feed-hint">Select a State and LGA above, then click Browse.</p>';
+            box.innerHTML = '<p class="feed-hint">Select a State and LGA to view messages.</p>';
             return;
         }
 
@@ -74,18 +74,11 @@ window.Guest = (function () {
     }
 
     function setupGuestChrome() {
-        document.getElementById('guest-badge')?.classList.remove('hidden');
         document.getElementById('auth-actions-guest')?.classList.remove('hidden');
         document.getElementById('user-info')?.classList.add('hidden');
         document.getElementById('guest-location-bar')?.classList.remove('hidden');
         document.getElementById('logout')?.classList.add('hidden');
         document.getElementById('toggle-profile')?.classList.add('hidden');
-
-        const profileUsername = document.getElementById('profile-username');
-        const profileLocation = document.getElementById('profile-location');
-        if (profileUsername) profileUsername.textContent = 'Guest';
-        if (profileLocation) profileLocation.textContent = 'Browse only — log in to post';
-
         setWriteControlsDisabled(true);
     }
 
@@ -98,7 +91,7 @@ window.Guest = (function () {
         if (messageInput) {
             messageInput.contentEditable = disabled ? 'false' : 'true';
             messageInput.classList.toggle('guest-disabled', disabled);
-            messageInput.setAttribute('data-placeholder', disabled ? 'Log in to post what you want done…' : 'What do you want done?');
+            messageInput.setAttribute('data-placeholder', 'What do you want done?');
         }
         if (sendBtn) sendBtn.disabled = disabled;
         if (attachBtn) attachBtn.disabled = disabled;
@@ -145,7 +138,6 @@ window.Guest = (function () {
     function bindGuestLocationControls() {
         const stateSelect = document.getElementById('guest-state');
         const lgaSelect = document.getElementById('guest-lga');
-        const browseBtn = document.getElementById('guest-browse-btn');
 
         const saved = Session.getGuestLocation();
         Locations.fillStateSelect(stateSelect, saved.state);
@@ -154,9 +146,15 @@ window.Guest = (function () {
         if (stateSelect && !stateSelect.dataset.bound) {
             stateSelect.dataset.bound = '1';
             Locations.wireStateLga(stateSelect, lgaSelect);
+            stateSelect.addEventListener('change', () => {
+                const box = document.getElementById('chat-messages');
+                if (box && !lgaSelect.value) {
+                    box.innerHTML = '<p class="feed-hint">Select a State and LGA to view messages.</p>';
+                }
+            });
         }
 
-        bindOnce(browseBtn, 'click', () => {
+        bindOnce(lgaSelect, 'change', () => {
             loadGuestFeed(stateSelect.value, lgaSelect.value);
         });
 

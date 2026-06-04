@@ -822,7 +822,7 @@ app.get('/feed/public', async (req, res) => {
     const messages = await dbAll(
       `SELECT id, username, state, lga, message, parent_id, attachment_url, attachment_type, created_at
        FROM messages
-       WHERE state = ? AND lga = ?
+       WHERE LOWER(TRIM(state)) = LOWER(TRIM(?)) AND LOWER(TRIM(lga)) = LOWER(TRIM(?))
        ORDER BY created_at ASC
        LIMIT 500`,
       [state, lga]
@@ -886,7 +886,8 @@ app.get('/search/public', async (req, res) => {
     const messages = await dbAll(
       `SELECT id, username, state, lga, message, parent_id, attachment_url, attachment_type, created_at
        FROM messages
-       WHERE state = ? AND lga = ? AND parent_id IS NULL AND LOWER(message) LIKE LOWER(?)
+       WHERE LOWER(TRIM(state)) = LOWER(TRIM(?)) AND LOWER(TRIM(lga)) = LOWER(TRIM(?))
+         AND parent_id IS NULL AND LOWER(message) LIKE LOWER(?)
        ORDER BY created_at DESC
        LIMIT 100`,
       [state, lga, `%${query}%`]

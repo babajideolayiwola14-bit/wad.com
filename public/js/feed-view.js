@@ -35,6 +35,11 @@ window.FeedView = (function () {
         container.innerHTML = '';
 
         const topLevelMessages = messages.filter(m => !m.parent_id);
+        if (topLevelMessages.length === 0 && messages.length === 0) {
+            container.innerHTML = '<p class="feed-hint">No messages yet in this location.</p>';
+            return;
+        }
+
         topLevelMessages.forEach(msg => {
             const messageElement = document.createElement('div');
             messageElement.classList.add('message-item');
@@ -86,6 +91,25 @@ window.FeedView = (function () {
         topLevelMessages.forEach(msg => {
             const item = container.querySelector(`.message-item[data-id="${msg.id}"]`);
             if (item) renderRepliesRecursive(msg.id, item);
+        });
+
+        finalizeThreads(container, readOnly);
+    }
+
+    function finalizeThreads(container, readOnly) {
+        container.querySelectorAll('.message-item, .reply-message').forEach(item => {
+            const repliesDiv = item.querySelector(':scope > .replies');
+            if (!repliesDiv || repliesDiv.children.length === 0) return;
+
+            const replyCount = item.querySelector('.reply-count');
+            if (replyCount) {
+                replyCount.innerHTML = `<span style="font-size:16px;margin-right:4px;">\uD83D\uDCAC</span>${repliesDiv.children.length}`;
+                replyCount.style.display = readOnly ? 'none' : 'inline';
+            }
+
+            if (readOnly) {
+                repliesDiv.style.display = 'block';
+            }
         });
     }
 

@@ -22,7 +22,6 @@
                 <div class="chat-header-bar">
                     <div class="chat-header-left">
                         <h2 id="chat-header">Welcome to Web Chat</h2>
-                        <span id="guest-badge" class="guest-badge hidden">Guest (Read-only)</span>
                     </div>
                     <div class="chat-header-right">
                         <div id="auth-actions-guest" class="auth-actions hidden">
@@ -46,17 +45,16 @@
                     <select id="guest-lga" aria-label="Browse by LGA">
                         <option value="">Select LGA</option>
                     </select>
-                    <button type="button" id="guest-browse-btn">Browse</button>
                 </div>
 
                 <div id="search-wrapper">
                     <input type="text" id="search-input" placeholder="Search messages in this location..." aria-label="Search messages">
                 </div>
                 <div id="chat-messages">
-                    <p class="feed-hint">Select a State and LGA above, then click Browse.</p>
+                    <p class="feed-hint">Select a State and LGA to view messages.</p>
                 </div>
                 <div id="message-form-wrapper">
-                    <div id="message" contenteditable="true" data-placeholder="Log in to post what you want done…" aria-label="What do you want done?" class="guest-disabled"></div>
+                    <div id="message" contenteditable="true" data-placeholder="What do you want done?" aria-label="What do you want done?" class="guest-disabled"></div>
                     <div id="hint-text"></div>
                     <div class="message-actions-row">
                         <button id="attach-btn" type="button" aria-label="Attach file" disabled>📎 Attach</button>
@@ -155,13 +153,13 @@
         </div>
     </div>
 
-    <script src="js/locations.js?v=10"></script>
-    <script src="js/session.js?v=10"></script>
-    <script src="js/feed-view.js?v=10"></script>
-    <script src="js/modals.js?v=10"></script>
-    <script src="js/auth.js?v=10"></script>
-    <script src="js/guest.js?v=10"></script>
-    <script src="js/chat.js?v=10"></script>
-    <script src="js/app.js?v=10"></script>
+    <script src="js/locations.js?v=11"></script>
+    <script src="js/session.js?v=11"></script>
+    <script src="js/feed-view.js?v=11"></script>
+    <script src="js/modals.js?v=11"></script>
+    <script src="js/auth.js?v=11"></script>
+    <script src="js/guest.js?v=11"></script>
+    <script src="js/chat.js?v=11"></script>
+    <script src="js/app.js?v=11"></script>
 </body>
 </html>
