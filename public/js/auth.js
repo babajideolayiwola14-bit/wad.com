@@ -252,8 +252,8 @@ async function handleLogin(e) {
     
     const usernameInput = document.getElementById('login-username') || document.getElementById('username');
     const passwordInput = document.getElementById('login-password') || document.getElementById('password');
-    const stateInput = document.getElementById('register-state') || document.getElementById('state');
-    const lgaInput = document.getElementById('register-lga') || document.getElementById('lga');
+    const stateInput = document.getElementById('state');
+    const lgaInput = document.getElementById('lga');
     const errorEl = document.getElementById('login-error') || document.getElementById('error-message');
 
     const username = usernameInput?.value.trim() || '';
