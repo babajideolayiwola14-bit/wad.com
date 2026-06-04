@@ -3,86 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Web Chat Login</title>
+    <title>Web Chat</title>
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-    <div class="login-container" id="login-container">
-        <h2>Login to Web Chat</h2>
-        <form id="login-form">
-            <div class="form-group">
-                <label for="username">Username:</label>
-                <input type="text" id="username" name="username" autocomplete="username" required>
-            </div>
-            <div class="form-group">
-                <label for="password">Password:</label>
-                <div style="display: flex; align-items: center; gap: 8px;">
-                    <input type="password" id="password" name="password" autocomplete="current-password" required>
-                    <button type="button" id="toggle-password" aria-label="Show password" style="padding: 6px 10px; background: none; border: 1px solid #ccc; border-radius: 4px; cursor: pointer; font-size: 14px;">👁️</button>
-                </div>
-            </div>
-            <div class="form-group">
-                <label>What do you want done?</label>
-            </div>
-            <div class="form-group">
-                <label for="state">State:</label>
-                <select id="state" name="state" autocomplete="address-level1" required>
-                    <option value="">Select State</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label for="lga">Local Government:</label>
-                <select id="lga" name="lga" autocomplete="address-level2" required>
-                    <option value="">Select LGA</option>
-                </select>
-            </div>
-            <button type="submit">Login</button>
-        </form>
-        <p id="error-message" class="error"></p>
-        <p class="login-footer">
-            Don't have an account? <a href="#" id="show-register">Register here</a>
-            ·
-            <a href="#" id="forgot-link">Forgot password?</a>
-        </p>
-    </div>
-    <div class="login-container" id="register-container" style="display: none;">
-        <h2>Register Account</h2>
-        <form id="register-form">
-            <div class="form-group">
-                <label for="reg-username">Username:</label>
-                <input type="text" id="reg-username" name="username" autocomplete="username" required>
-            </div>
-            <div class="form-group">
-                <label for="reg-email">Email (optional):</label>
-                <input type="email" id="reg-email" name="email" autocomplete="email" placeholder="you@example.com">
-            </div>
-            <div class="form-group">
-                <label for="reg-password">Password:</label>
-                <div style="display: flex; align-items: center; gap: 8px;">
-                    <input type="password" id="reg-password" name="password" autocomplete="new-password" required>
-                    <button type="button" id="toggle-reg-password" aria-label="Show password" style="padding: 6px 10px; background: none; border: 1px solid #ccc; border-radius: 4px; cursor: pointer; font-size: 14px;">👁️</button>
-                </div>
-            </div>
-            <div class="form-group">
-                <label for="register-state">State:</label>
-                <select id="register-state" name="state" required>
-                    <option value="">Select State</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label for="register-lga">Local Government:</label>
-                <select id="register-lga" name="lga" required>
-                    <option value="">Select LGA</option>
-                </select>
-            </div>
-            <button type="submit">Register</button>
-        </form>
-        <p id="register-message" class="error"></p>
-        <p style="text-align: center; margin-top: 15px;">
-            Already have an account? <a href="#" id="show-login" style="color: #007bff; text-decoration: none;">Login here</a>
-        </p>
-    </div>
-    <div class="chat-container" id="chat-container" style="display: none;">
+    <div class="chat-container" id="chat-container">
         <div class="chat-shell">
             <div id="profile-overlay" class="profile-overlay"></div>
             <aside class="profile-panel" id="profile-panel">
@@ -94,32 +19,149 @@
                 <div id="profile-interactions" class="profile-interactions"></div>
             </aside>
             <div class="chat-main">
-                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
-                    <h2 id="chat-header" style="margin: 0;">Welcome to Web Chat</h2>
-                    <div style="display: flex; flex-direction: column; gap: 5px;">
-                        <button id="toggle-profile" class="toggle-profile-btn" style="display: none;">☰ mybit</button>
-                        <button id="search-btn" style="padding: 6px 10px; background-color: #fff; color: #000; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; white-space: nowrap;">Search</button>
+                <div class="chat-header-bar">
+                    <div class="chat-header-left">
+                        <h2 id="chat-header">Welcome to Web Chat</h2>
+                        <span id="guest-badge" class="guest-badge hidden">Guest (Read-only)</span>
+                    </div>
+                    <div class="chat-header-right">
+                        <div id="auth-actions-guest" class="auth-actions hidden">
+                            <button type="button" id="header-login-btn" class="header-auth-btn">Log in</button>
+                            <button type="button" id="header-register-btn" class="header-auth-btn">Register</button>
+                        </div>
+                        <div id="user-info" class="user-info hidden">
+                            <span id="current-user"></span>
+                        </div>
+                        <button id="toggle-profile" class="toggle-profile-btn hidden">☰ mybit</button>
+                        <button id="search-btn" type="button">Search</button>
                     </div>
                 </div>
-                <div id="search-wrapper" style="margin-bottom: 10px;">
-                    <input type="text" id="search-input" placeholder="Search messages in your location..." style="padding: 8px; border: 1px solid #ccc; border-radius: 4px; width: 100%; font-size: 14px;">
+
+                <div id="guest-location-bar" class="guest-location-bar hidden">
+                    <label for="guest-state">State</label>
+                    <select id="guest-state" aria-label="Browse by state">
+                        <option value="">Select State</option>
+                    </select>
+                    <label for="guest-lga">LGA</label>
+                    <select id="guest-lga" aria-label="Browse by LGA">
+                        <option value="">Select LGA</option>
+                    </select>
+                    <button type="button" id="guest-browse-btn">Browse</button>
                 </div>
-                <div id="chat-messages"></div>
+
+                <div id="search-wrapper">
+                    <input type="text" id="search-input" placeholder="Search messages in this location..." aria-label="Search messages">
+                </div>
+                <div id="chat-messages">
+                    <p class="feed-hint">Select a State and LGA above, then click Browse.</p>
+                </div>
                 <div id="message-form-wrapper">
-                    <div id="message" contenteditable="true" data-placeholder="What do you want done?" aria-label="What do you want done?" autofocus></div>
-                    <div id="hint-text" style="font-size:11px; color:#999; margin-top:4px; min-height:14px;"></div>
-                    <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-                        <button id="attach-btn" type="button" aria-label="Attach file" style="padding: 8px 12px; border: 1px solid #ccc; border-radius: 4px; background: #f7f7f7; cursor: pointer;">📎 Attach</button>
-                        <span id="attachment-name" style="font-size:12px; color:#555;"></span>
-                        <input type="file" id="attachment-input" style="display:none" accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt" />
-                        <button id="send-btn" type="button" aria-label="Send message">Send</button>
+                    <div id="message" contenteditable="true" data-placeholder="Log in to post what you want done…" aria-label="What do you want done?" class="guest-disabled"></div>
+                    <div id="hint-text"></div>
+                    <div class="message-actions-row">
+                        <button id="attach-btn" type="button" aria-label="Attach file" disabled>📎 Attach</button>
+                        <span id="attachment-name"></span>
+                        <input type="file" id="attachment-input" style="display:none" accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt" disabled>
+                        <button id="send-btn" type="button" aria-label="Send message" disabled>Send</button>
                     </div>
                 </div>
-                <button id="logout">Logout</button>
+                <button id="logout" type="button" class="hidden">Logout</button>
             </div>
         </div>
     </div>
-    <script src="js/auth.js?v=9"></script>
-    <script src="js/chat.js?v=9"></script>
+
+    <!-- Login modal -->
+    <div id="login-modal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Log in to Web Chat</h2>
+                <button type="button" id="close-modal" class="close-btn" aria-label="Close">&times;</button>
+            </div>
+            <form id="login-form">
+                <div class="form-group">
+                    <label for="login-username">Username</label>
+                    <input type="text" id="login-username" name="username" autocomplete="username" required>
+                </div>
+                <div class="form-group">
+                    <label for="login-password">Password</label>
+                    <div class="password-row">
+                        <input type="password" id="login-password" name="password" autocomplete="current-password" required>
+                        <button type="button" id="toggle-login-password" aria-label="Show password">👁️</button>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="login-state">State</label>
+                    <select id="login-state" name="state" required>
+                        <option value="">Select State</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="login-lga">Local Government</label>
+                    <select id="login-lga" name="lga" required>
+                        <option value="">Select LGA</option>
+                    </select>
+                </div>
+                <button type="submit" class="submit-btn">Log in</button>
+                <div id="login-error" class="error"></div>
+            </form>
+            <div class="modal-footer">
+                <p>Don't have an account? <a href="#" id="toggle-register">Register here</a></p>
+                <p><a href="#" id="forgot-link">Forgot password?</a></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Register modal -->
+    <div id="register-modal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Create account</h2>
+                <button type="button" id="close-register-modal" class="close-btn" aria-label="Close">&times;</button>
+            </div>
+            <form id="register-form">
+                <div class="form-group">
+                    <label for="reg-username">Username</label>
+                    <input type="text" id="reg-username" name="username" autocomplete="username" required>
+                </div>
+                <div class="form-group">
+                    <label for="reg-email">Email (optional)</label>
+                    <input type="email" id="reg-email" name="email" autocomplete="email" placeholder="you@example.com">
+                </div>
+                <div class="form-group">
+                    <label for="reg-password">Password</label>
+                    <div class="password-row">
+                        <input type="password" id="reg-password" name="password" autocomplete="new-password" required>
+                        <button type="button" id="toggle-reg-password" aria-label="Show password">👁️</button>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="register-state">State</label>
+                    <select id="register-state" name="state" required>
+                        <option value="">Select State</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="register-lga">Local Government</label>
+                    <select id="register-lga" name="lga" required>
+                        <option value="">Select LGA</option>
+                    </select>
+                </div>
+                <button type="submit" class="submit-btn">Register</button>
+                <div id="register-error" class="error"></div>
+            </form>
+            <div class="modal-footer">
+                <p>Already have an account? <a href="#" id="toggle-login">Log in here</a></p>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/locations.js?v=10"></script>
+    <script src="js/session.js?v=10"></script>
+    <script src="js/feed-view.js?v=10"></script>
+    <script src="js/modals.js?v=10"></script>
+    <script src="js/auth.js?v=10"></script>
+    <script src="js/guest.js?v=10"></script>
+    <script src="js/chat.js?v=10"></script>
+    <script src="js/app.js?v=10"></script>
 </body>
 </html>

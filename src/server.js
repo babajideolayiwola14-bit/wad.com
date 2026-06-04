@@ -809,7 +809,32 @@ app.post('/update-location', verifyHttpToken, async (req, res) => {
   }
 });
 
-// Get location-based feed
+// Get location-based feed (public read-only for guests)
+app.get('/feed/public', async (req, res) => {
+  try {
+    const state = (req.query.state || '').trim();
+    const lga = (req.query.lga || '').trim();
+
+    if (!state || !lga) {
+      return res.status(400).json({ message: 'State and LGA are required' });
+    }
+
+    const messages = await dbAll(
+      `SELECT id, username, state, lga, message, parent_id, attachment_url, attachment_type, created_at
+       FROM messages
+       WHERE state = ? AND lga = ?
+       ORDER BY created_at ASC
+       LIMIT 500`,
+      [state, lga]
+    );
+
+    res.json({ messages, state, lga });
+  } catch (err) {
+    console.error('Failed to fetch public feed:', err);
+    res.status(500).json({ message: 'Failed to fetch feed' });
+  }
+});
+
 // Get location-based feed
 app.get('/feed', verifyHttpToken, async (req, res) => {
   try {
@@ -840,6 +865,37 @@ app.get('/feed', verifyHttpToken, async (req, res) => {
   } catch (err) {
     console.error('Failed to fetch feed:', err);
     res.status(500).json({ message: 'Failed to fetch feed' });
+  }
+});
+
+// Search messages in a location (public read-only for guests)
+app.get('/search/public', async (req, res) => {
+  try {
+    const state = (req.query.state || '').trim();
+    const lga = (req.query.lga || '').trim();
+    const query = req.query.q || '';
+
+    if (!state || !lga) {
+      return res.status(400).json({ message: 'State and LGA are required' });
+    }
+
+    if (!query.trim()) {
+      return res.json({ messages: [] });
+    }
+
+    const messages = await dbAll(
+      `SELECT id, username, state, lga, message, parent_id, attachment_url, attachment_type, created_at
+       FROM messages
+       WHERE state = ? AND lga = ? AND parent_id IS NULL AND LOWER(message) LIKE LOWER(?)
+       ORDER BY created_at DESC
+       LIMIT 100`,
+      [state, lga, `%${query}%`]
+    );
+
+    res.json({ messages });
+  } catch (err) {
+    console.error('Failed to search public messages:', err);
+    res.status(500).json({ message: 'Failed to search messages' });
   }
 });
 
@@ -1425,8 +1481,29 @@ io.on('connection', (socket) => {
     
     if (isGuest) {
       console.log('Guest connected from', socket.handshake.address);
-      // Guests can only view, not post
-      // They don't join any rooms and won't receive new messages
+      socket.isGuest = true;
+
+      socket.on('guest:join', ({ state, lga }) => {
+        try {
+          const normalizedState = (state || '').trim();
+          const normalizedLga = (lga || '').trim();
+          if (!normalizedState || !normalizedLga) return;
+
+          if (socket.guestRoom) {
+            socket.leave(socket.guestRoom);
+          }
+          const room = `${normalizedState}_${normalizedLga}`;
+          socket.guestRoom = room;
+          socket.join(room);
+          console.log('Guest joined room:', room);
+        } catch (err) {
+          console.error('Guest join room failed:', err.message);
+        }
+      });
+
+      socket.on('disconnect', () => {
+        console.log('Guest disconnected');
+      });
       return;
     }
     

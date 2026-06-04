@@ -904,6 +904,144 @@ button[type="submit"]:hover {
     display: none;
 }
 
+/* Guest mode layout */
+.chat-header-bar {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+}
+
+.chat-header-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.chat-header-left h2 {
+    margin: 0;
+    font-size: 1.25rem;
+}
+
+.chat-header-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.auth-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.header-auth-btn {
+    padding: 6px 12px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    background: #fff;
+    cursor: pointer;
+    font-size: 13px;
+}
+
+.header-auth-btn:hover {
+    background: #f5f5f5;
+}
+
+.guest-location-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+    padding: 10px;
+    background: #f8f9fa;
+    border-radius: 6px;
+    border: 1px solid #e9ecef;
+}
+
+.guest-location-bar label {
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.guest-location-bar select {
+    padding: 6px 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    min-width: 140px;
+}
+
+#guest-browse-btn {
+    padding: 6px 14px;
+    border: none;
+    border-radius: 4px;
+    background: #007bff;
+    color: #fff;
+    cursor: pointer;
+}
+
+.feed-hint {
+    padding: 12px;
+    color: #666;
+    font-size: 14px;
+}
+
+.feed-error-banner {
+    padding: 12px;
+    background: #fff3cd;
+    border: 1px solid #ffc107;
+    border-radius: 6px;
+    color: #664d03;
+    font-size: 14px;
+}
+
+.feed-error-banner button {
+    margin-left: 8px;
+    padding: 4px 10px;
+    cursor: pointer;
+}
+
+#message.guest-disabled {
+    background: #f5f5f5;
+    color: #888;
+    cursor: pointer;
+}
+
+#message.guest-disabled:empty:before {
+    content: attr(data-placeholder);
+    color: #999;
+}
+
+.message-actions-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.password-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.password-row input {
+    flex: 1;
+}
+
+.modal-content form {
+    padding: 0 20px 10px;
+}
+
+.modal-content .submit-btn {
+    width: 100%;
+    margin-top: 8px;
+}
+
 #message-form-wrapper {
     display: flex;
     gap: 10px;

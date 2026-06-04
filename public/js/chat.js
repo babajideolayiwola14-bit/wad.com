@@ -1,13 +1,17 @@
-// Check if user is logged in - removed since loaded after login
-
-(function() {
-    const token = localStorage.getItem('token');
+// Authenticated chat — initialized by App.enterAuthenticatedMode()
+window.initAuthenticatedChat = function () {
+    const token = Session.getToken();
     if (!token) return;
 
     if (window.chatLoaded) return;
     window.chatLoaded = true;
 
-    function startChat() {
+    loadSocketAndStartChat();
+};
+
+function startAuthenticatedChat() {
+    const token = Session.getToken();
+    if (!token) return;
     if (typeof io === 'undefined') {
         const box = document.getElementById('chat-messages');
         if (box) {
@@ -825,34 +829,19 @@
         if (header) header.textContent = `Replying to ${replyTo}`;
     }
 
-    // Logout handler (only if logout button exists)
+    // Logout handler
     const logoutBtn = document.getElementById('logout');
     if (logoutBtn) {
         logoutBtn.addEventListener('click', () => {
-            localStorage.removeItem('token');
-            localStorage.removeItem('user');
-            localStorage.removeItem('state');
-            localStorage.removeItem('lga');
-            // Reset chat loaded flags
+            Session.clearSession();
             window.chatLoaded = false;
-            window.chatScriptsLoading = false;
             feedLoaded = false;
-            // Hide chat, show login
-            const chatContainer = document.getElementById('chat-container');
-            const loginContainer = document.getElementById('login-container');
-            if (chatContainer) chatContainer.style.display = 'none';
-            if (loginContainer) loginContainer.style.display = 'block';
             if (messagesDiv) messagesDiv.innerHTML = '';
-            // Disconnect socket and wait before redirecting
             if (socket && socket.connected) {
                 socket.disconnect();
-                // Wait 500ms for socket to fully disconnect
-                setTimeout(() => {
-                    window.location.reload();
-                }, 500);
-            } else {
-                window.location.reload();
             }
+            window.activeSocket = null;
+            App.enterGuestMode();
         });
     }
 
@@ -1237,42 +1226,29 @@
         const currentToken = localStorage.getItem('token');
         if (!currentToken) {
             console.error('No token found in localStorage');
-            alert('Authentication failed. Please login again.');
-            // Hide chat, show login
-            const chatContainer = document.getElementById('chat-container');
-            const loginContainer = document.getElementById('login-container');
-            if (chatContainer) chatContainer.style.display = 'none';
-            if (loginContainer) loginContainer.style.display = 'block';
-            localStorage.removeItem('user');
-            localStorage.removeItem('state');
-            localStorage.removeItem('lga');
+            Session.clearSession();
+            App.enterGuestMode();
         } else {
             console.error('Token exists but connection failed. Error:', error.message);
-            // Don't immediately log out - might be network issue
             if (error.message.includes('authentication') || error.message.includes('jwt')) {
-                alert('Authentication expired. Please login again.');
-                const chatContainer = document.getElementById('chat-container');
-                const loginContainer = document.getElementById('login-container');
-                if (chatContainer) chatContainer.style.display = 'none';
-                if (loginContainer) loginContainer.style.display = 'block';
-                localStorage.removeItem('token');
-                localStorage.removeItem('user');
-                localStorage.removeItem('state');
-                localStorage.removeItem('lga');
+                Session.clearSession();
+                App.enterGuestMode();
             }
         }
     });
-    }
+}
 
+function loadSocketAndStartChat() {
     if (typeof io !== 'undefined') {
-        startChat();
+        startAuthenticatedChat();
     } else {
         const s = document.createElement('script');
         s.src = '/socket.io/socket.io.js';
-        s.onload = startChat;
-        s.onerror = function() {
-            startChat();
-        };
+        s.onload = startAuthenticatedChat;
+        s.onerror = startAuthenticatedChat;
         document.head.appendChild(s);
     }
-})();
+}
+
+// Expose socket loader for authenticated mode only (called from initAuthenticatedChat)
+window.loadSocketAndStartChat = loadSocketAndStartChat;
