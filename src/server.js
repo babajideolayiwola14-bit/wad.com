@@ -189,6 +189,20 @@ function isValidPassword(password) {
          /[0-9]/.test(password);
 }
 
+function verifyPassword(plainPassword, storedHash) {
+  if (!storedHash) return false;
+  if (/^\$2[aby]\$/.test(storedHash)) {
+    return bcrypt.compareSync(plainPassword, storedHash);
+  }
+  // Legacy rows that stored plain text before bcrypt migration
+  return plainPassword === storedHash;
+}
+
+async function upgradePasswordHash(username, plainPassword) {
+  const hashedPassword = bcrypt.hashSync(plainPassword, 10);
+  await dbRun('UPDATE users SET password_hash = ? WHERE username = ?', [hashedPassword, username]);
+}
+
 function sanitizeInput(input) {
   if (typeof input !== 'string') return input;
   // Remove dangerous characters
@@ -301,7 +315,7 @@ app.get('/health', async (req, res) => {
 
 // Registration endpoint
 app.post('/register', authLimiter, async (req, res) => {
-  const { username, password, email } = req.body;
+  const { username, password, email, state, lga } = req.body;
 
   if (!username || !password) {
     return res.status(400).json({ message: 'Username and password are required' });
@@ -322,19 +336,30 @@ app.post('/register', authLimiter, async (req, res) => {
   }
 
   try {
-    // Check if user already exists
-    const existing = await dbAll('SELECT username FROM users WHERE username = ? LIMIT 1', [username]);
+    const trimmedUsername = String(username).trim();
+    const normalizedState = state ? String(state).trim() : null;
+    const normalizedLga = lga ? String(lga).trim() : null;
+
+    // Check if user already exists (case-insensitive)
+    const existing = await dbAll('SELECT username FROM users WHERE LOWER(username) = LOWER(?) LIMIT 1', [trimmedUsername]);
 
     if (existing && existing.length > 0) {
       return res.status(400).json({ message: 'Username already exists' });
     }
 
+    if (!normalizedState || !normalizedLga) {
+      return res.status(400).json({ message: 'State and LGA are required' });
+    }
+
     // Hash password and create user
     const hashedPassword = bcrypt.hashSync(password, 10);
     
-    await dbRun('INSERT INTO users (username, password_hash, email, created_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)', [username, hashedPassword, email || null]);
+    await dbRun(
+      'INSERT INTO users (username, password_hash, email, state, lga, created_at) VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)',
+      [trimmedUsername, hashedPassword, email || null, normalizedState, normalizedLga]
+    );
 
-    console.log('New user registered:', username);
+    console.log('New user registered:', trimmedUsername);
     res.status(200).json({ message: 'Registration successful' });
   } catch (err) {
     console.error('Registration failed:', err.message || err);
@@ -379,98 +404,96 @@ app.post('/login', authLimiter, async (req, res) => {
     return res.status(400).json({ message: 'Invalid username format (3-30 alphanumeric characters)' });
   }
 
-  // Check if trying to login as admin
-  if (username === process.env.ADMIN_USERNAME) {
-    const adminPassword = process.env.ADMIN_PASSWORD;
-    if (!adminPassword || password !== adminPassword) {
-      // Log failed admin login
-      console.warn(`Failed admin login attempt for user: ${username}`);
-      return res.status(401).json({ message: 'Invalid username or password' });
-    }
-    // Admin login successful
-    const token = jwt.sign(
-      { username, role: 'admin', state: 'Admin', lga: 'Admin' },
-      SECRET_KEY,
-      { expiresIn: process.env.JWT_EXPIRY || '30d' }
-    );
-    return res.status(200).json({
-      auth: true,
-      token: token,
-      user: { username, role: 'admin', state: 'Admin', lga: 'Admin' }
-    });
-  }
+  const trimmedUsername = String(username).trim();
 
   // Normalize location input to reduce casing/spacing mismatches
   let normalizedState = state ? String(state).trim() : null;
   let normalizedLga = lga ? String(lga).trim() : null;
 
   try {
-    // Query database for existing user
-    const dbUsers = await dbAll('SELECT username, password_hash, email, state, lga FROM users WHERE username = ? LIMIT 1', [username]);
+    // Check database first so regular users are not blocked by ADMIN_USERNAME env match
+    const dbUsers = await dbAll(
+      'SELECT username, password_hash, email, state, lga, role, banned FROM users WHERE LOWER(username) = LOWER(?) LIMIT 1',
+      [trimmedUsername]
+    );
 
     let user = dbUsers && dbUsers.length > 0 ? dbUsers[0] : null;
 
     if (user) {
-      // Set defaults for role and banned if columns don't exist yet
       user.role = user.role || 'user';
       user.banned = user.banned || 0;
-      // Verify password for existing user
-      const passwordIsValid = bcrypt.compareSync(password, user.password_hash);
+
+      const passwordIsValid = verifyPassword(password, user.password_hash);
       if (!passwordIsValid) {
-        console.warn(`Failed login attempt for user: ${username}`);
+        console.warn(`Failed login attempt for user: ${user.username}`);
         return res.status(401).json({ message: 'Invalid username or password' });
       }
 
-      // Check if user is banned
+      if (!/^\$2[aby]\$/.test(user.password_hash || '')) {
+        await upgradePasswordHash(user.username, password);
+      }
+
       if (user.banned === 1) {
         return res.status(403).json({ message: 'Your account has been banned. Contact admin.' });
       }
-      
-      // Use stored state/lga if not provided in request
+
       if (!normalizedState && user.state) {
         normalizedState = String(user.state).trim();
       }
       if (!normalizedLga && user.lga) {
         normalizedLga = String(user.lga).trim();
       }
+    } else if (trimmedUsername === process.env.ADMIN_USERNAME) {
+      const adminPassword = process.env.ADMIN_PASSWORD;
+      if (!adminPassword || password !== adminPassword) {
+        console.warn(`Failed admin login attempt for user: ${trimmedUsername}`);
+        return res.status(401).json({ message: 'Invalid username or password' });
+      }
+
+      const token = jwt.sign(
+        { username: trimmedUsername, role: 'admin', state: 'Admin', lga: 'Admin' },
+        SECRET_KEY,
+        { expiresIn: process.env.JWT_EXPIRY || '30d' }
+      );
+      return res.status(200).json({
+        auth: true,
+        token,
+        user: { username: trimmedUsername, role: 'admin', state: 'Admin', lga: 'Admin' }
+      });
     } else {
-      // New user - auto-register with password strength requirement
       if (!isValidPassword(password)) {
-        return res.status(400).json({ 
-          message: 'Password must be at least 8 characters with uppercase, lowercase, and numbers' 
+        return res.status(400).json({
+          message: 'Password must be at least 8 characters with uppercase, lowercase, and numbers'
         });
       }
-      
-      // For new users, state and lga are required
+
       if (!normalizedState || !normalizedLga) {
         return res.status(400).json({ message: 'State and LGA are required for new registrations' });
       }
-      
+
       const hashedPassword = bcrypt.hashSync(password, 10);
-      
-      // Insert new user into database
-      await dbRun('INSERT INTO users (username, password_hash, state, lga, created_at) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)', [username, hashedPassword, normalizedState || null, normalizedLga || null]);
-      
-      console.log('New user registered:', username);
-      user = { username, role: 'user' };
+      await dbRun(
+        'INSERT INTO users (username, password_hash, state, lga, created_at) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)',
+        [trimmedUsername, hashedPassword, normalizedState, normalizedLga]
+      );
+
+      console.log('New user registered:', trimmedUsername);
+      user = { username: trimmedUsername, role: 'user' };
     }
 
-    // Update user location in database only if provided
     if (normalizedState && normalizedLga) {
-      await dbRun('UPDATE users SET state = ?, lga = ? WHERE username = ?', [normalizedState || null, normalizedLga || null, username]);
+      await dbRun('UPDATE users SET state = ?, lga = ? WHERE username = ?', [normalizedState, normalizedLga, user.username]);
     }
 
-    // Generate JWT token
     const token = jwt.sign(
       { username: user.username, role: user.role || 'user', state: normalizedState, lga: normalizedLga },
       SECRET_KEY,
       { expiresIn: process.env.JWT_EXPIRY || '30d' }
     );
 
-    // Fetch email for response
     let email = null;
     try {
-      const emailRec = await dbAll('SELECT email FROM users WHERE username = ? LIMIT 1', [username]);
+      const emailRec = await dbAll('SELECT email FROM users WHERE username = ? LIMIT 1', [user.username]);
       if (emailRec && emailRec[0]) email = emailRec[0].email || null;
     } catch (e) {
       console.error('Error fetching email for login response', e);
@@ -478,7 +501,7 @@ app.post('/login', authLimiter, async (req, res) => {
 
     res.status(200).json({
       auth: true,
-      token: token,
+      token,
       user: { username: user.username, role: user.role || 'user', state: normalizedState, lga: normalizedLga, email }
     });
   } catch (err) {
@@ -500,7 +523,8 @@ app.post('/auth/request-reset', async (req, res) => {
   const { username, email: suppliedEmail } = req.body || {};
   if (!username) return res.status(400).json({ message: 'Username required' });
   try {
-    const rows = await dbAll('SELECT username, email FROM users WHERE username = ? LIMIT 1', [username]);
+    const trimmedUsername = String(username).trim();
+    const rows = await dbAll('SELECT username, email FROM users WHERE LOWER(username) = LOWER(?) LIMIT 1', [trimmedUsername]);
     if (!rows || rows.length === 0) {
       // Do not reveal whether username exists
       return res.json({ message: 'If that account exists an email will be sent' });
@@ -511,7 +535,7 @@ app.post('/auth/request-reset', async (req, res) => {
     if (!user.email) {
       if (suppliedEmail) {
         // update the user row before proceeding
-        await dbRun('UPDATE users SET email = ? WHERE username = ?', [suppliedEmail, username]);
+        await dbRun('UPDATE users SET email = ? WHERE username = ?', [suppliedEmail, user.username]);
         user.email = suppliedEmail;
       } else {
         // tell the client to supply an email or log in and add one
@@ -523,10 +547,12 @@ app.post('/auth/request-reset', async (req, res) => {
     const token = require('crypto').randomBytes(32).toString('hex');
     const expiresIn = new Date(Date.now() + 3600000); // 1 hour from now
     
-    await dbRun('UPDATE users SET reset_token = ?, reset_expires = ? WHERE username = ?', [token, expiresIn, username]);
+    await dbRun('UPDATE users SET reset_token = ?, reset_expires = ? WHERE username = ?', [token, expiresIn, user.username]);
+
+    const smtpConfigured = Boolean(process.env.SMTP_HOST && process.env.SMTP_USER);
 
     // Send email if SMTP configured
-    if (process.env.SMTP_HOST && process.env.SMTP_USER) {
+    if (smtpConfigured) {
       try {
         const transporter = nodemailer.createTransport({
           host: process.env.SMTP_HOST,
@@ -549,6 +575,7 @@ app.post('/auth/request-reset', async (req, res) => {
         return res.json({ message: 'If that account exists an email will be sent' });
       } catch (err) {
         console.error('Failed to send reset email:', err);
+        return res.status(500).json({ message: 'Could not send reset email. Try again later or contact support.' });
       }
     }
 
@@ -557,7 +584,10 @@ app.post('/auth/request-reset', async (req, res) => {
       return res.json({ message: 'DEV token', token });
     }
 
-    res.json({ message: 'If that account exists an email will be sent' });
+    return res.status(503).json({
+      message: 'Password reset email is not configured on this server yet. Ask the site admin to set up SMTP, or contact them for help resetting your password.',
+      smtpNotConfigured: true
+    });
   } catch (err) {
     console.error('Request reset failed:', err);
     res.status(500).json({ message: 'Failed to request reset' });

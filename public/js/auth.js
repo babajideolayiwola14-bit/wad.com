@@ -127,6 +127,8 @@ function setupEventListeners() {
     const registerForm = getElement('register-form');
     if (registerForm) registerForm.addEventListener('submit', handleRegister);
 
+    const forgotLink = document.getElementById('forgot-link');
+    if (forgotLink) forgotLink.addEventListener('click', handleForgotPassword);
 }
 
 // Modal functions
@@ -359,6 +361,48 @@ async function handleRegister(e) {
         
     } catch (err) {
         showFormError(errorEl, err.message || 'Registration failed.');
+    }
+}
+
+async function handleForgotPassword(e) {
+    e.preventDefault();
+
+    const usernameInput = document.getElementById('username');
+    const suggestedUsername = usernameInput?.value.trim() || '';
+    const username = prompt('Enter your username to request a password reset:', suggestedUsername);
+    if (!username) return;
+
+    await requestPasswordReset(username.trim());
+}
+
+async function requestPasswordReset(username, email) {
+    try {
+        const body = { username };
+        if (email) body.email = email;
+
+        const res = await fetch('/auth/request-reset', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        });
+
+        const data = await res.json().catch(() => ({}));
+
+        if (res.status === 400 && data.requireEmail) {
+            const suppliedEmail = prompt('No email is saved for this account. Enter your email address:');
+            if (!suppliedEmail) return;
+            return requestPasswordReset(username, suppliedEmail.trim());
+        }
+
+        if (data.token) {
+            window.location.href = `/reset.html?token=${encodeURIComponent(data.token)}`;
+            return;
+        }
+
+        alert(data.message || 'If that account exists, reset instructions were sent.');
+    } catch (err) {
+        console.error('Request reset failed', err);
+        alert('Failed to request password reset. Try again later.');
     }
 }
 
