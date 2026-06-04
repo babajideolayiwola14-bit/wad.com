@@ -395,7 +395,11 @@ async function requestPasswordReset(username, email) {
         }
 
         if (data.token || data.resetUrl) {
-            window.location.href = data.resetUrl || `/reset.html?token=${encodeURIComponent(data.token)}`;
+            if (data.token) {
+                window.location.href = `/reset.html?token=${encodeURIComponent(data.token)}`;
+            } else {
+                window.location.href = data.resetUrl;
+            }
             return;
         }
 

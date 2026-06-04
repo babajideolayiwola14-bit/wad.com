@@ -1,6 +1,6 @@
 // Legacy entry for cached index.html that still references /script.js
 (function loadLegacyScripts() {
-    const scripts = ['js/auth.js?v=6', 'js/chat.js?v=6'];
+    const scripts = ['js/auth.js?v=7', 'js/chat.js?v=7'];
     let index = 0;
 
     function loadNext() {
