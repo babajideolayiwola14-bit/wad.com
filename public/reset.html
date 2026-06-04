@@ -75,8 +75,16 @@
           const data = await res.json();
           if (res.ok) {
             msg.style.color = 'green';
-            msg.textContent = 'Password updated. Redirecting to login...';
-            setTimeout(() => { window.location.href = 'index.html'; }, 1500);
+            msg.textContent = data.message || 'Password updated. Signing you in...';
+            if (data.token) {
+              localStorage.setItem('token', data.token);
+              if (data.username) {
+                localStorage.setItem('user', JSON.stringify({ username: data.username }));
+              }
+              setTimeout(() => { window.location.href = 'index.html'; }, 1000);
+            } else {
+              setTimeout(() => { window.location.href = 'index.html'; }, 1500);
+            }
           } else {
             msg.style.color = 'red';
             msg.textContent = data.message || 'Failed to reset password.';

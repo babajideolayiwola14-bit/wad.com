@@ -344,7 +344,9 @@ app.post('/register', authLimiter, async (req, res) => {
     const existing = await dbAll('SELECT username FROM users WHERE LOWER(username) = LOWER(?) LIMIT 1', [trimmedUsername]);
 
     if (existing && existing.length > 0) {
-      return res.status(400).json({ message: 'Username already exists' });
+      return res.status(400).json({
+        message: 'Username already exists. Log in, or use Forgot password to reset your password.'
+      });
     }
 
     if (!normalizedState || !normalizedLga) {
@@ -460,11 +462,11 @@ app.post('/login', authLimiter, async (req, res) => {
         token,
         user: { username: trimmedUsername, role: 'admin', state: 'Admin', lga: 'Admin' }
       });
+    } else {
+      return res.status(401).json({
+        message: 'Invalid username or password. Use Register if you do not have an account yet.'
+      });
     }
-
-    return res.status(401).json({
-      message: 'Invalid username or password. Use Register if you do not have an account yet.'
-    });
 
     if (normalizedState && normalizedLga) {
       await dbRun('UPDATE users SET state = ?, lga = ? WHERE username = ?', [normalizedState, normalizedLga, user.username]);
@@ -620,7 +622,13 @@ app.post('/auth/reset', async (req, res) => {
       [hashed, rec.username]
     );
 
-    res.json({ ok: true });
+    const token = jwt.sign(
+      { username: rec.username, role: 'user', state: null, lga: null },
+      SECRET_KEY,
+      { expiresIn: process.env.JWT_EXPIRY || '30d' }
+    );
+
+    res.json({ ok: true, token, username: rec.username, message: 'Password updated. You are now signed in.' });
   } catch (err) {
     console.error('Reset failed:', err);
     res.status(500).json({ message: 'Failed to reset password' });
