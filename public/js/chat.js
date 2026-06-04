@@ -53,19 +53,10 @@ function startAuthenticatedChat() {
     // Store in global for cleanup
     window.activeSocket = socket;
 
-    // Track if we've loaded the feed yet
-    let feedLoaded = false;
-
-    // Wait for socket connection before fetching feed
+    // Wait for socket connection before loading location feed
     socket.on('connect', () => {
-        console.log('Socket connected, fetching feed...');
-        if (!feedLoaded) {
-            feedLoaded = true;
-            // Small delay to ensure DOM is ready
-            setTimeout(() => {
-                fetchFeed();
-            }, 100);
-        }
+        console.log('Socket connected, loading location feed...');
+        LocationFeed.tryLoadFromDropdowns();
     });
 
     const messagesDiv = document.getElementById('chat-messages');
@@ -238,14 +229,10 @@ function startAuthenticatedChat() {
             const data = await res.json();
             console.log('Interaction recorded:', data);
             
-            // If location changed, update user object and reload feed
+            // If location changed via interaction, sync dropdowns and reload feed
             if (data.newLocation) {
-                const user = JSON.parse(localStorage.getItem('user') || '{}');
-                user.state = data.newLocation.state;
-                user.lga = data.newLocation.lga;
-                localStorage.setItem('user', JSON.stringify(user));
-                console.log('User location updated to:', data.newLocation.state, data.newLocation.lga);
-                fetchFeed(); // Reload feed for new location
+                LocationFeed.setSelectedLocation(data.newLocation.state, data.newLocation.lga);
+                await LocationFeed.loadFeed(data.newLocation.state, data.newLocation.lga);
             }
             
             console.log('Fetching profile after interaction...');
@@ -456,192 +443,49 @@ function startAuthenticatedChat() {
 
     fetchProfile();
 
-    // Event delegation for profile interactions - single listener
+    // Event delegation for profile interactions - jump to location via dropdowns
     if (profileInteractions) {
         profileInteractions.addEventListener('click', async (event) => {
             const item = event.target.closest('.profile-interaction-item');
             if (!item) return;
-            
-            console.log('Interaction item clicked');
-            
+
             const messageId = Number(item.dataset.messageId);
             const messageState = item.dataset.state;
             const messageLga = item.dataset.lga;
-            
-            console.log('Message ID:', messageId, 'State:', messageState, 'LGA:', messageLga);
-            
-            if (!messageId) return;
-            
-            // Close profile panel on mobile so user can see the chatbox
+            if (!messageId || !messageState || !messageLga) return;
+
             if (profilePanel && profilePanel.classList.contains('show')) {
                 profilePanel.classList.remove('show');
-                if (profileOverlay) {
-                    profileOverlay.style.display = 'none';
-                }
-                console.log('Profile panel closed');
+                if (profileOverlay) profileOverlay.style.display = 'none';
             }
-            
-            // Get current user's location
-            const user = JSON.parse(localStorage.getItem('user') || '{}');
-            const currentState = user.state;
-            const currentLga = user.lga;
-            
-            // Check if message is from a different location
-            if (messageState !== currentState || messageLga !== currentLga) {
-                // Switch to the message's location
-                console.log(`Switching from ${currentState}/${currentLga} to ${messageState}/${messageLga}`);
-                
-                // Update user location in localStorage
-                user.state = messageState;
-                user.lga = messageLga;
-                localStorage.setItem('user', JSON.stringify(user));
-                
-                // Update header if it exists
-                const chatHeader = document.getElementById('chat-header');
-                if (chatHeader) {
-                    chatHeader.textContent = `${messageState}, ${messageLga}`;
-                }
-                
-                // Update location in database via server
-                const currentToken = localStorage.getItem('token');
-                try {
-                    await fetch('/update-location', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${currentToken}`
-                        },
-                        body: JSON.stringify({ state: messageState, lga: messageLga })
-                    });
-                    console.log('Database location updated');
-                } catch (err) {
-                    console.error('Failed to update location in database:', err);
-                }
-                
-                // Reconnect socket to new location room
-                socket.disconnect();
-                socket.auth.token = currentToken; // Refresh token
-                socket.connect();
-                
-                // Wait for reconnection with timeout fallback
-                let reconnectHandled = false;
-                
-                const handleReconnect = async () => {
-                    if (reconnectHandled) return;
-                    reconnectHandled = true;
-                    
-                    console.log('Reconnected to new location');
-                    await fetchFeed();
-                    
-                    // Don't filter - show all messages in new location including conversation thread
-                    // Just scroll to and highlight the clicked message
+
+            LocationFeed.setSelectedLocation(messageState, messageLga);
+            await LocationFeed.loadFeed(messageState, messageLga);
+
+            setTimeout(() => {
+                const messageElement = document.querySelector(`[data-id="${messageId}"]`);
+                if (messageElement) {
+                    messageElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    messageElement.style.backgroundColor = '#f5f5f5';
+                    messageElement.style.border = '2px solid #000';
                     setTimeout(() => {
-                        const messageElement = document.querySelector(`[data-id="${messageId}"]`);
-                        if (messageElement) {
-                            messageElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                            messageElement.style.backgroundColor = '#f5f5f5';
-                            messageElement.style.border = '2px solid #000';
-                            setTimeout(() => {
-                                messageElement.style.backgroundColor = '';
-                                messageElement.style.border = '';
-                            }, 3000);
-                        }
-                    }, 200);
-                };
-                
-                socket.once('connect', handleReconnect);
-                
-                // Fallback if socket doesn't reconnect within 2 seconds
-                setTimeout(() => {
-                    if (!reconnectHandled) {
-                        console.log('Socket reconnect timeout, loading feed anyway');
-                        handleReconnect();
-                    }
-                }, 2000);
-            } else {
-                // Same location, fetch feed to ensure messages are loaded
-                console.log('Same location, fetching feed...');
-                await fetchFeed();
-                console.log('Feed fetched, looking for message:', messageId);
-                
-                // Don't filter - show all messages so user can see full conversation thread
-                // Just scroll to and highlight the clicked message
-                setTimeout(() => {
-                    const messageElement = document.querySelector(`[data-id="${messageId}"]`);
-                    console.log('Message element found:', !!messageElement);
-                    if (messageElement) {
-                        console.log('Scrolling to message:', messageId);
-                        messageElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                        messageElement.style.backgroundColor = '#f5f5f5';
-                        messageElement.style.border = '2px solid #000';
-                        setTimeout(() => {
-                            messageElement.style.backgroundColor = '';
-                            messageElement.style.border = '';
-                        }, 3000);
-                    } else {
-                        console.error('Message not found in DOM:', messageId);
-                        // Try again after a longer delay
-                        setTimeout(() => {
-                            const retryElement = document.querySelector(`[data-id="${messageId}"]`);
-                            if (retryElement) {
-                                console.log('Found on retry, scrolling to message:', messageId);
-                                retryElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                                retryElement.style.backgroundColor = '#f5f5f5';
-                                retryElement.style.border = '2px solid #000';
-                                setTimeout(() => {
-                                    retryElement.style.backgroundColor = '';
-                                    retryElement.style.border = '';
-                                }, 3000);
-                            } else {
-                                console.error('Message still not found after retry:', messageId);
-                            }
-                        }, 1000);
-                    }
-                }, 500);
-            }
+                        messageElement.style.backgroundColor = '';
+                        messageElement.style.border = '';
+                    }, 3000);
+                }
+            }, 300);
         });
     }
 
     async function fetchFeed() {
-        if (!token) return;
-        try {
-            const res = await fetch('/feed', {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            if (!res.ok) return;
-            const data = await res.json();
-            console.log('Feed data received:', data);
-            console.log('Number of messages:', data.messages ? data.messages.length : 0);
-            renderFeed(data.messages || []);
-        } catch (err) {
-            console.error('Failed to fetch feed', err);
-        }
+        LocationFeed.tryLoadFromDropdowns();
     }
 
     async function searchMessages(query) {
-        if (!token) return;
-        try {
-            console.log('Searching for:', query);
-            const res = await fetch(`/search?q=${encodeURIComponent(query)}`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            if (!res.ok) {
-                console.error('Search request failed:', res.status);
-                return;
-            }
-            const data = await res.json();
-            console.log('Search results:', data.messages.length, 'messages found');
-            if (data.messages.length === 0) {
-                console.log('No messages found for query:', query);
-            }
-            renderFeed(data.messages || []);
-            
-            // Show the View All button after search
-            const btn = document.getElementById('view-all-btn');
-            if (btn) btn.style.display = 'block';
-        } catch (err) {
-            console.error('Failed to search messages', err);
-        }
+        if (!query.trim()) return;
+        await LocationFeed.searchCurrentLocation(query);
+        const btn = document.getElementById('view-all-btn');
+        if (btn) btn.style.display = 'block';
     }
 
     // Search functionality
@@ -821,7 +665,7 @@ function startAuthenticatedChat() {
         messagesDiv.scrollTop = messagesDiv.scrollHeight;
     }
 
-    // fetchFeed() is now called when socket connects (see socket.on('connect') above)
+    window.renderAuthenticatedFeed = renderFeed;
 
     // Update header if reply page
     if (isReplyPage) {
@@ -835,7 +679,7 @@ function startAuthenticatedChat() {
         logoutBtn.addEventListener('click', () => {
             Session.clearSession();
             window.chatLoaded = false;
-            feedLoaded = false;
+            window.renderAuthenticatedFeed = null;
             if (messagesDiv) messagesDiv.innerHTML = '';
             if (socket && socket.connected) {
                 socket.disconnect();
@@ -1136,7 +980,8 @@ function startAuthenticatedChat() {
                             attachmentType = uploaded.type;
                         }
                         const payloadMessage = message ? `@${replyTo} ${message}` : `@${replyTo}`;
-                        socket.emit('chat message', { message: payloadMessage, parentId, attachmentUrl, attachmentType });
+                        const { state, lga } = LocationFeed.getSelectedLocation();
+                        socket.emit('chat message', { message: payloadMessage, parentId, attachmentUrl, attachmentType, state, lga });
                         if (parentId) {
                             console.log('Reply sent, recording interaction for parent:', parentId);
                             await recordInteraction(parentId, 'reply');
@@ -1194,7 +1039,8 @@ function startAuthenticatedChat() {
                 if (isReplyPage && message) {
                     message = `@${replyTo} ${message}`;
                 }
-                socket.emit('chat message', { message, parentId: null, attachmentUrl, attachmentType });
+                const { state, lga } = LocationFeed.getSelectedLocation();
+                socket.emit('chat message', { message, parentId: null, attachmentUrl, attachmentType, state, lga });
                 messageInput.textContent = '';
                 if (attachmentName) attachmentName.textContent = '';
                 if (attachmentInput) attachmentInput.value = '';

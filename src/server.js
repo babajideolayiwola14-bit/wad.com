@@ -1525,12 +1525,24 @@ io.on('connection', (socket) => {
     // Store new connection
     userSockets.set(username, socket);
 
-    // Join location-based room (state_lga) - normalize by trimming
-    const normalizedState = (socket.user.state || '').trim();
-    const normalizedLga = (socket.user.lga || '').trim();
-    const locationRoom = `${normalizedState}_${normalizedLga}`;
-    socket.join(locationRoom);
-    console.log('User joined room:', locationRoom);
+    socket.on('location:join', ({ state, lga }) => {
+      try {
+        const normalizedState = (state || '').trim();
+        const normalizedLga = (lga || '').trim();
+        if (!normalizedState || !normalizedLga) return;
+
+        if (socket.locationRoom) {
+          socket.leave(socket.locationRoom);
+        }
+        socket.locationRoom = `${normalizedState}_${normalizedLga}`;
+        socket.viewState = normalizedState;
+        socket.viewLga = normalizedLga;
+        socket.join(socket.locationRoom);
+        console.log('User', username, 'joined view room:', socket.locationRoom);
+      } catch (err) {
+        console.error('Authenticated location join failed:', err.message);
+      }
+    });
 
   // Listen for chat messages
   socket.on('chat message', async (data) => {
@@ -1545,8 +1557,8 @@ io.on('connection', (socket) => {
       const attachmentType = data && data.attachmentType ? data.attachmentType : null;
       const parentId = (data && data.parentId) ? Number(data.parentId) : null;
       const username = socket.user.username;
-      const state = (socket.user.state || '').trim();
-      const lga = (socket.user.lga || '').trim();
+      const state = (data.state || socket.viewState || socket.user.state || '').trim();
+      const lga = (data.lga || socket.viewLga || socket.user.lga || '').trim();
       const messageRoom = state && lga ? `${state}_${lga}` : null;
       const now = new Date();
 

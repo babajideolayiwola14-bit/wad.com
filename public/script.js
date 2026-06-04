@@ -1,14 +1,15 @@
 // Legacy entry for cached index.html that still references /script.js
 (function loadLegacyScripts() {
     const scripts = [
-        'js/locations.js?v=10',
-        'js/session.js?v=10',
-        'js/feed-view.js?v=10',
-        'js/modals.js?v=10',
-        'js/auth.js?v=10',
-        'js/guest.js?v=10',
-        'js/chat.js?v=10',
-        'js/app.js?v=10'
+        'js/locations.js?v=12',
+        'js/session.js?v=12',
+        'js/feed-view.js?v=12',
+        'js/location-feed.js?v=12',
+        'js/modals.js?v=12',
+        'js/auth.js?v=12',
+        'js/guest.js?v=12',
+        'js/chat.js?v=12',
+        'js/app.js?v=12'
     ];
     let index = 0;
 

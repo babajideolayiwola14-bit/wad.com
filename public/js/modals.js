@@ -96,14 +96,6 @@ window.Modals = (function () {
             e.preventDefault();
             openLoginModal(Session.getGuestLocation());
         });
-        getEl('header-login-btn')?.addEventListener('click', (e) => {
-            e.preventDefault();
-            openLoginModal(Session.getGuestLocation());
-        });
-        getEl('header-register-btn')?.addEventListener('click', (e) => {
-            e.preventDefault();
-            openRegisterModal(Session.getGuestLocation());
-        });
         getEl('forgot-link')?.addEventListener('click', (e) => {
             e.preventDefault();
             Auth.handleForgotPassword(e);

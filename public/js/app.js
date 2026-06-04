@@ -9,11 +9,7 @@ window.App = (function () {
     }
 
     function setupAuthenticatedChrome(user) {
-        document.getElementById('auth-actions-guest')?.classList.add('hidden');
-        document.getElementById('guest-location-bar')?.classList.add('hidden');
-        document.getElementById('user-info')?.classList.remove('hidden');
-        document.getElementById('logout')?.classList.remove('hidden');
-        document.getElementById('toggle-profile')?.classList.remove('hidden');
+        LocationFeed.setAuthenticatedHeaderChrome();
 
         const currentUserEl = document.getElementById('current-user');
         if (currentUserEl && user?.username) {
@@ -33,7 +29,9 @@ window.App = (function () {
     async function enterGuestMode() {
         Guest.teardown();
         window.chatLoaded = false;
+        window.renderAuthenticatedFeed = null;
         showChatShell();
+        LocationFeed.initControls();
         Guest.init();
     }
 
@@ -43,11 +41,14 @@ window.App = (function () {
 
         const user = Session.getUser();
         showChatShell();
+        LocationFeed.seedFromUser(user);
         setupAuthenticatedChrome(user);
 
         if (typeof window.initAuthenticatedChat === 'function') {
             window.initAuthenticatedChat();
         }
+
+        LocationFeed.initControls();
     }
 
     async function bootstrap() {

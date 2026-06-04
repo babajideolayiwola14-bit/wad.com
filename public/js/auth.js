@@ -43,6 +43,7 @@ window.Auth = (function () {
             }
 
             Session.setAuthenticatedSession(data.token, data.user);
+            Session.setGuestLocation(state, lga);
             Modals.closeLoginModal();
             await App.enterAuthenticatedMode();
         } catch (err) {
