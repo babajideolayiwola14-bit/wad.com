@@ -839,7 +839,10 @@ button[type="submit"]:hover {
     display: none;
 }
 
-#login-error.show, #register-error.show {
+#login-error.show,
+#register-error.show,
+#error-message.show,
+#register-message.show {
     display: block;
 }
 

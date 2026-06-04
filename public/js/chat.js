@@ -1,8 +1,20 @@
 // Check if user is logged in - removed since loaded after login
 
 (function() {
+    const token = localStorage.getItem('token');
+    if (!token) return;
+
     if (window.chatLoaded) return;
     window.chatLoaded = true;
+
+    function startChat() {
+    if (typeof io === 'undefined') {
+        const box = document.getElementById('chat-messages');
+        if (box) {
+            box.innerHTML = '<p style="padding:12px;color:#b00;">Chat could not connect. Please refresh the page. If this continues, the server may be offline.</p>';
+        }
+        return;
+    }
 
     // Check if this is a reply page
     const urlParams = new URLSearchParams(window.location.search);
@@ -10,7 +22,6 @@
     const isReplyPage = !!replyTo;
 
     // Initialize socket.io with authentication
-    const token = localStorage.getItem('token');
     
     // Check token persistence on mobile
     console.log('Token retrieved from localStorage:', token ? 'exists' : 'missing');
@@ -1251,4 +1262,17 @@
             }
         }
     });
+    }
+
+    if (typeof io !== 'undefined') {
+        startChat();
+    } else {
+        const s = document.createElement('script');
+        s.src = '/socket.io/socket.io.js';
+        s.onload = startChat;
+        s.onerror = function() {
+            startChat();
+        };
+        document.head.appendChild(s);
+    }
 })();

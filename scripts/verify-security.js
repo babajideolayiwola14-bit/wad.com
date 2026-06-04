@@ -66,7 +66,8 @@ try {
 
 // Test 4: Security features in server.js
 console.log('\n✓ TEST 4: Server Security Middleware');
-const serverJs = fs.readFileSync('server.js', 'utf8');
+const serverPath = fs.existsSync('src/server.js') ? 'src/server.js' : 'server.js';
+const serverJs = fs.readFileSync(serverPath, 'utf8');
 const securityChecks = [
   { name: 'Rate Limiting', pattern: /authLimiter/ },
   { name: 'Helmet.js', pattern: /helmet\(\)/ },

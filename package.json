@@ -1,11 +1,12 @@
 {
   "name": "web-chat-app",
   "version": "1.0.0",
-  "description": "A simple web chat application with authentication",
-  "main": "server.js",
+  "description": "Nigeria location-based action-request chat (PostgreSQL + Render)",
+  "main": "src/server.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "nodemon server.js"
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js",
+    "verify-security": "node scripts/verify-security.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
@@ -18,13 +19,15 @@
     "jsonwebtoken": "^9.0.2",
     "mongo-sanitize": "^1.1.0",
     "multer": "^2.0.2",
+    "nodemailer": "^6.9.3",
     "pg": "^8.17.2",
     "socket.io": "^4.7.2",
-    "sqlite3": "^5.1.7",
-    "xss-clean": "^0.1.4",
-    "nodemailer": "^6.9.3"
+    "xss-clean": "^0.1.4"
   },
   "devDependencies": {
     "nodemon": "^3.0.1"
+  },
+  "engines": {
+    "node": ">=18"
   }
 }

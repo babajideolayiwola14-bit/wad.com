@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Web Chat Login</title>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
     <div class="login-container" id="login-container">
@@ -18,7 +18,7 @@
                 <label for="password">Password:</label>
                 <div style="display: flex; align-items: center; gap: 8px;">
                     <input type="password" id="password" name="password" autocomplete="current-password" required>
-                    <button type="button" id="toggle-password" style="padding: 6px 10px; background: none; border: 1px solid #ccc; border-radius: 4px; cursor: pointer; font-size: 14px;">👁️</button>
+                    <button type="button" id="toggle-password" aria-label="Show password" style="padding: 6px 10px; background: none; border: 1px solid #ccc; border-radius: 4px; cursor: pointer; font-size: 14px;">👁️</button>
                 </div>
             </div>
             <div class="form-group">
@@ -60,8 +60,20 @@
                 <label for="reg-password">Password:</label>
                 <div style="display: flex; align-items: center; gap: 8px;">
                     <input type="password" id="reg-password" name="password" autocomplete="new-password" required>
-                    <button type="button" id="toggle-reg-password" style="padding: 6px 10px; background: none; border: 1px solid #ccc; border-radius: 4px; cursor: pointer; font-size: 14px;">👁️</button>
+                    <button type="button" id="toggle-reg-password" aria-label="Show password" style="padding: 6px 10px; background: none; border: 1px solid #ccc; border-radius: 4px; cursor: pointer; font-size: 14px;">👁️</button>
                 </div>
+            </div>
+            <div class="form-group">
+                <label for="register-state">State:</label>
+                <select id="register-state" name="state" required>
+                    <option value="">Select State</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="register-lga">Local Government:</label>
+                <select id="register-lga" name="lga" required>
+                    <option value="">Select LGA</option>
+                </select>
             </div>
             <button type="submit">Register</button>
         </form>
@@ -107,6 +119,7 @@
             </div>
         </div>
     </div>
-    <script src="script.js"></script>
+    <script src="js/auth.js?v=2"></script>
+    <script src="js/chat.js?v=2"></script>
 </body>
 </html>

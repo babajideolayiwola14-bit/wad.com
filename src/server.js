@@ -8,13 +8,12 @@ const fs = require('fs');
 const http = require('http');
 const socketIo = require('socket.io');
 const multer = require('multer');
-require('dotenv').config();
+require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') });
 const crypto = require('crypto');
 const nodemailer = require('nodemailer');
 
-// Database modules
-const sqlite3 = require('sqlite3').verbose();
-const { Pool } = require('pg');
+const { PUBLIC_DIR, UPLOADS_DIR } = require('./paths');
+const { dbRun, dbAll, initDb } = require('./db');
 
 // Security modules
 const rateLimit = require('express-rate-limit');
@@ -58,238 +57,10 @@ if (NODE_ENV === 'production') {
   }
 }
 
-// Database setup - use PostgreSQL on Heroku, SQLite locally
-const USE_POSTGRES = !!process.env.DATABASE_URL;
-let db, pool;
-
-if (USE_POSTGRES) {
-  // PostgreSQL for production (Heroku)
-  pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
-    ssl: { rejectUnauthorized: false }
-  });
-  console.log('Using PostgreSQL database');
-  ensureSchema();
-} else {
-  // SQLite for local development
-  db = new sqlite3.Database('./chatapp.db', (err) => {
-    if (err) {
-      console.error('Failed to open database:', err);
-    } else {
-      console.log('Using SQLite database');
-      ensureSchema();
-    }
-  });
-}
-
-// Helper to promisify db.run and db.all - works for both databases
-async function dbRun(sql, params = []) {
-  if (USE_POSTGRES) {
-    // Convert ? to $1, $2, etc for PostgreSQL
-    let pgSql = sql;
-    let count = 0;
-    pgSql = pgSql.replace(/\?/g, () => `$${++count}`);
-    
-    // For INSERT statements, add appropriate RETURNING clause
-    const isInsert = /^\s*INSERT\s+INTO/i.test(pgSql);
-    if (isInsert && !/RETURNING/i.test(pgSql)) {
-      // Check which table to determine the correct RETURNING column
-      if (/INSERT\s+INTO\s+users/i.test(pgSql)) {
-        // users table uses username as primary key, not id
-        pgSql = pgSql.replace(/;?\s*$/, ' RETURNING username');
-      } else {
-        // Other tables use id as primary key
-        pgSql = pgSql.replace(/;?\s*$/, ' RETURNING id');
-      }
-    }
-    
-    console.log('[dbRun] SQL:', pgSql, 'Params:', params);
-    
-    const client = await pool.connect();
-    try {
-      const result = await client.query(pgSql, params);
-      console.log('[dbRun] Result:', result.rowCount, 'rows affected');
-      return { 
-        lastID: result.rows[0]?.id || result.rows[0]?.username, 
-        changes: result.rowCount, 
-        rows: result.rows 
-      };
-    } catch (err) {
-      console.error('[dbRun] Query error:', err.message);
-      throw err;
-    } finally {
-      client.release();
-    }
-  } else {
-    return new Promise((resolve, reject) => {
-      db.run(sql, params, function(err) {
-        if (err) reject(err);
-        else resolve({ lastID: this.lastID, changes: this.changes });
-      });
-    });
-  }
-}
-
-async function dbAll(sql, params = []) {
-  if (USE_POSTGRES) {
-    // Convert ? to $1, $2, etc for PostgreSQL
-    let pgSql = sql;
-    let count = 0;
-    pgSql = pgSql.replace(/\?/g, () => `$${++count}`);
-    
-    console.log('[dbAll] SQL:', pgSql, 'Params:', params);
-    
-    const client = await pool.connect();
-    try {
-      const result = await client.query(pgSql, params);
-      console.log('[dbAll] Result rows:', result.rows?.length || 0);
-      return result.rows || [];
-    } catch (err) {
-      console.error('[dbAll] Query error:', err.message);
-      throw err;
-    } finally {
-      client.release();
-    }
-  } else {
-    return new Promise((resolve, reject) => {
-      db.all(sql, params, (err, rows) => {
-        if (err) reject(err);
-        else resolve(rows || []);
-      });
-    });
-  }
-}
-
-async function ensureSchema() {
-  const isPostgres = USE_POSTGRES;
-  
-  const createMessagesTable = isPostgres ? `
-    CREATE TABLE IF NOT EXISTS messages (
-      id SERIAL PRIMARY KEY,
-      username TEXT NOT NULL,
-      state TEXT,
-      lga TEXT,
-      message TEXT NOT NULL,
-      parent_id INTEGER,
-      attachment_url TEXT,
-      attachment_type TEXT,
-      deleted_at TIMESTAMP,
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    );
-  ` : `
-    CREATE TABLE IF NOT EXISTS messages (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      username TEXT NOT NULL,
-      state TEXT,
-      lga TEXT,
-      message TEXT NOT NULL,
-      parent_id INTEGER,
-      attachment_url TEXT,
-      attachment_type TEXT,
-      deleted_at DATETIME,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    );
-  `;
-  
-  const createUsersTable = isPostgres ? `
-    CREATE TABLE IF NOT EXISTS users (
-      username TEXT PRIMARY KEY,
-      password_hash TEXT,
-      email TEXT UNIQUE,
-      state TEXT,
-      lga TEXT,
-      role TEXT DEFAULT 'user',
-      banned INTEGER DEFAULT 0,
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    );
-  ` : `
-    CREATE TABLE IF NOT EXISTS users (
-      username TEXT PRIMARY KEY,
-      password_hash TEXT,
-      email TEXT UNIQUE,
-      state TEXT,
-      lga TEXT,
-      role TEXT DEFAULT 'user',
-      banned INTEGER DEFAULT 0,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    );
-  `;
-  
-  const createInteractionsTable = isPostgres ? `
-    CREATE TABLE IF NOT EXISTS interactions (
-      id SERIAL PRIMARY KEY,
-      username TEXT NOT NULL REFERENCES users(username) ON DELETE CASCADE,
-      message_id INTEGER NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
-      type TEXT NOT NULL,
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    );
-  ` : `
-    CREATE TABLE IF NOT EXISTS interactions (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      username TEXT NOT NULL REFERENCES users(username) ON DELETE CASCADE,
-      message_id INTEGER NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
-      type TEXT NOT NULL,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    );
-  `;
-  
-  const createFlaggedMessagesTable = isPostgres ? `
-    CREATE TABLE IF NOT EXISTS flagged_messages (
-      id SERIAL PRIMARY KEY,
-      username TEXT NOT NULL,
-      message TEXT NOT NULL,
-      rejection_reason TEXT,
-      state TEXT,
-      lga TEXT,
-      status TEXT DEFAULT 'pending',
-      reviewed_by TEXT,
-      reviewed_at TIMESTAMP,
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    );
-  ` : `
-    CREATE TABLE IF NOT EXISTS flagged_messages (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      username TEXT NOT NULL,
-      message TEXT NOT NULL,
-      rejection_reason TEXT,
-      state TEXT,
-      lga TEXT,
-      status TEXT DEFAULT 'pending',
-      reviewed_by TEXT,
-      reviewed_at DATETIME,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    );
-  `;
-  
-  try {
-    await dbRun(createMessagesTable);
-    await dbRun(createUsersTable);
-    await dbRun(createInteractionsTable);
-    await dbRun(createFlaggedMessagesTable);
-    // make sure email, reset, role, and banned columns exist on users (migration for existing DB)
-    if (USE_POSTGRES) {
-      try { await dbRun("ALTER TABLE users ADD COLUMN IF NOT EXISTS email TEXT;"); } catch (e) { console.log('Email column add skipped:', e.message); }
-      try { await dbRun("ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_token TEXT;"); } catch (e) { console.log('Reset token add skipped:', e.message); }
-      try { await dbRun("ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_expires TIMESTAMP;"); } catch (e) { console.log('Reset expires add skipped:', e.message); }
-      try { await dbRun("ALTER TABLE users ADD COLUMN IF NOT EXISTS role TEXT;"); } catch (e) { console.log('Role column add skipped:', e.message); }
-      try { await dbRun("ALTER TABLE users ADD COLUMN IF NOT EXISTS banned INTEGER;"); } catch (e) { console.log('Banned column add skipped:', e.message); }
-      // Set defaults for existing rows
-      try { await dbRun("UPDATE users SET role = 'user' WHERE role IS NULL;"); } catch (e) { console.log('Role default skipped:', e.message); }
-      try { await dbRun("UPDATE users SET banned = 0 WHERE banned IS NULL;"); } catch (e) { console.log('Banned default skipped:', e.message); }
-    } else {
-      // sqlite: add plain column then index to enforce uniqueness
-      try { await dbRun("ALTER TABLE users ADD COLUMN email TEXT;"); } catch (e) { /* ignore if exists */ }
-      try { await dbRun("CREATE UNIQUE INDEX IF NOT EXISTS users_email_idx ON users(email);"); } catch (e) { /* ignore */ }
-      try { await dbRun("ALTER TABLE users ADD COLUMN reset_token TEXT;"); } catch (e) { /* ignore if exists */ }
-      try { await dbRun("ALTER TABLE users ADD COLUMN reset_expires DATETIME;"); } catch (e) { /* ignore if exists */ }
-      try { await dbRun("ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'user';"); } catch (e) { /* ignore if exists */ }
-      try { await dbRun("ALTER TABLE users ADD COLUMN banned INTEGER DEFAULT 0;"); } catch (e) { /* ignore if exists */ }
-    }
-    console.log('Database schema initialized successfully');
-  } catch (err) {
-    console.error('Failed to ensure schema:', err);
-  }
-}
+initDb().catch((err) => {
+  console.error('Database initialization failed:', err);
+  process.exit(1);
+});
 
 // Validate if message is action-oriented (improved for edge cases)
 function isActionStatement(message) {
@@ -460,20 +231,29 @@ app.use((req, res, next) => {
   next();
 });
 
-// Trust Heroku proxy for proper IP detection
+// Trust reverse proxy (Render, etc.) for correct client IP
 app.set('trust proxy', 1);
 
 app.use(bodyParser.json());
-app.use(express.static(path.join(__dirname)));
-if (!fs.existsSync(path.join(__dirname, 'uploads'))) {
-  fs.mkdirSync(path.join(__dirname, 'uploads'), { recursive: true });
+app.use(express.static(PUBLIC_DIR));
+
+app.get('/', (req, res) => {
+  res.sendFile(path.join(PUBLIC_DIR, 'index.html'));
+});
+
+app.get('/admin', (req, res) => {
+  res.sendFile(path.join(PUBLIC_DIR, 'admin', 'index.html'));
+});
+
+if (!fs.existsSync(UPLOADS_DIR)) {
+  fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 }
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use('/uploads', express.static(UPLOADS_DIR));
 
 // File upload setup
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, path.join(__dirname, 'uploads'));
+    cb(null, UPLOADS_DIR);
   },
   filename: (req, file, cb) => {
     const timestamp = Date.now();
@@ -496,19 +276,17 @@ app.get('/health', async (req, res) => {
     
     try {
       const result = await dbAll(
-        USE_POSTGRES
-          ? "SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_name = 'users')"
-          : "SELECT name FROM sqlite_master WHERE type='table' AND name='users'",
+        "SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_name = 'users') as exists",
         []
       );
-      tableExists = USE_POSTGRES ? result[0]?.exists === true : result.length > 0;
+      tableExists = result[0]?.exists === true;
     } catch (tableErr) {
       errorMsg = tableErr.message;
     }
     
     res.json({
       ok: true,
-      database: USE_POSTGRES ? 'PostgreSQL' : 'SQLite',
+      database: 'PostgreSQL',
       tablesReady: tableExists,
       error: errorMsg
     });
@@ -545,12 +323,7 @@ app.post('/register', authLimiter, async (req, res) => {
 
   try {
     // Check if user already exists
-    const existing = await dbAll(
-      USE_POSTGRES
-        ? 'SELECT username FROM users WHERE username = $1 LIMIT 1'
-        : 'SELECT username FROM users WHERE username = ? LIMIT 1',
-      [username]
-    );
+    const existing = await dbAll('SELECT username FROM users WHERE username = ? LIMIT 1', [username]);
 
     if (existing && existing.length > 0) {
       return res.status(400).json({ message: 'Username already exists' });
@@ -559,12 +332,7 @@ app.post('/register', authLimiter, async (req, res) => {
     // Hash password and create user
     const hashedPassword = bcrypt.hashSync(password, 10);
     
-    await dbRun(
-      USE_POSTGRES
-        ? 'INSERT INTO users (username, password_hash, email, created_at) VALUES ($1, $2, $3, CURRENT_TIMESTAMP)'
-        : 'INSERT INTO users (username, password_hash, email, created_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)',
-      [username, hashedPassword, email || null]
-    );
+    await dbRun('INSERT INTO users (username, password_hash, email, created_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)', [username, hashedPassword, email || null]);
 
     console.log('New user registered:', username);
     res.status(200).json({ message: 'Registration successful' });
@@ -638,12 +406,7 @@ app.post('/login', authLimiter, async (req, res) => {
 
   try {
     // Query database for existing user
-    const dbUsers = await dbAll(
-      USE_POSTGRES
-        ? 'SELECT username, password_hash, email, state, lga FROM users WHERE username = $1 LIMIT 1'
-        : 'SELECT username, password_hash, email, state, lga FROM users WHERE username = ? LIMIT 1',
-      [username]
-    );
+    const dbUsers = await dbAll('SELECT username, password_hash, email, state, lga FROM users WHERE username = ? LIMIT 1', [username]);
 
     let user = dbUsers && dbUsers.length > 0 ? dbUsers[0] : null;
 
@@ -686,12 +449,7 @@ app.post('/login', authLimiter, async (req, res) => {
       const hashedPassword = bcrypt.hashSync(password, 10);
       
       // Insert new user into database
-      await dbRun(
-        USE_POSTGRES
-          ? 'INSERT INTO users (username, password_hash, state, lga, created_at) VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP)'
-          : 'INSERT INTO users (username, password_hash, state, lga, created_at) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)',
-        [username, hashedPassword, normalizedState || null, normalizedLga || null]
-      );
+      await dbRun('INSERT INTO users (username, password_hash, state, lga, created_at) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)', [username, hashedPassword, normalizedState || null, normalizedLga || null]);
       
       console.log('New user registered:', username);
       user = { username, role: 'user' };
@@ -699,12 +457,7 @@ app.post('/login', authLimiter, async (req, res) => {
 
     // Update user location in database only if provided
     if (normalizedState && normalizedLga) {
-      await dbRun(
-        USE_POSTGRES
-          ? 'UPDATE users SET state = $1, lga = $2 WHERE username = $3'
-          : 'UPDATE users SET state = ?, lga = ? WHERE username = ?',
-        [normalizedState || null, normalizedLga || null, username]
-      );
+      await dbRun('UPDATE users SET state = ?, lga = ? WHERE username = ?', [normalizedState || null, normalizedLga || null, username]);
     }
 
     // Generate JWT token
@@ -717,12 +470,7 @@ app.post('/login', authLimiter, async (req, res) => {
     // Fetch email for response
     let email = null;
     try {
-      const emailRec = await dbAll(
-        USE_POSTGRES
-          ? 'SELECT email FROM users WHERE username = $1 LIMIT 1'
-          : 'SELECT email FROM users WHERE username = ? LIMIT 1',
-        [username]
-      );
+      const emailRec = await dbAll('SELECT email FROM users WHERE username = ? LIMIT 1', [username]);
       if (emailRec && emailRec[0]) email = emailRec[0].email || null;
     } catch (e) {
       console.error('Error fetching email for login response', e);
@@ -752,12 +500,7 @@ app.post('/auth/request-reset', async (req, res) => {
   const { username, email: suppliedEmail } = req.body || {};
   if (!username) return res.status(400).json({ message: 'Username required' });
   try {
-    const rows = await dbAll(
-      USE_POSTGRES
-        ? 'SELECT username, email FROM users WHERE username = $1 LIMIT 1'
-        : 'SELECT username, email FROM users WHERE username = ? LIMIT 1',
-      [username]
-    );
+    const rows = await dbAll('SELECT username, email FROM users WHERE username = ? LIMIT 1', [username]);
     if (!rows || rows.length === 0) {
       // Do not reveal whether username exists
       return res.json({ message: 'If that account exists an email will be sent' });
@@ -768,12 +511,7 @@ app.post('/auth/request-reset', async (req, res) => {
     if (!user.email) {
       if (suppliedEmail) {
         // update the user row before proceeding
-        await dbRun(
-          USE_POSTGRES
-            ? 'UPDATE users SET email = $1 WHERE username = $2'
-            : 'UPDATE users SET email = ? WHERE username = ?',
-          [suppliedEmail, username]
-        );
+        await dbRun('UPDATE users SET email = ? WHERE username = ?', [suppliedEmail, username]);
         user.email = suppliedEmail;
       } else {
         // tell the client to supply an email or log in and add one
@@ -785,12 +523,7 @@ app.post('/auth/request-reset', async (req, res) => {
     const token = require('crypto').randomBytes(32).toString('hex');
     const expiresIn = new Date(Date.now() + 3600000); // 1 hour from now
     
-    await dbRun(
-      USE_POSTGRES
-        ? 'UPDATE users SET reset_token = $1, reset_expires = $2 WHERE username = $3'
-        : 'UPDATE users SET reset_token = ?, reset_expires = ? WHERE username = ?',
-      [token, expiresIn, username]
-    );
+    await dbRun('UPDATE users SET reset_token = ?, reset_expires = ? WHERE username = ?', [token, expiresIn, username]);
 
     // Send email if SMTP configured
     if (process.env.SMTP_HOST && process.env.SMTP_USER) {
@@ -861,15 +594,10 @@ app.post('/auth/reset', async (req, res) => {
     if (!expires || expires < new Date()) return res.status(400).json({ message: 'Invalid or expired token' });
 
     const hashed = bcrypt.hashSync(password, 10);
-    await dbRun(USE_POSTGRES
-      ? 'UPDATE users SET password_hash = $1, reset_token = NULL, reset_expires = NULL WHERE username = $2'
-      : 'UPDATE users SET password_hash = ?, reset_token = NULL, reset_expires = NULL WHERE username = ?',
+    await dbRun(
+      'UPDATE users SET password_hash = ?, reset_token = NULL, reset_expires = NULL WHERE username = ?',
       [hashed, rec.username]
     );
-
-    // update in-memory user if present
-    const mem = users.find(u => u.username === rec.username);
-    if (mem) mem.password = hashed;
 
     res.json({ ok: true });
   } catch (err) {
@@ -1166,12 +894,7 @@ app.post('/admin/approve/:id', verifyHttpToken, async (req, res) => {
     }
     const msg = flagged[0];
     // Post the message
-    const result = await dbRun(
-      USE_POSTGRES 
-        ? 'INSERT INTO messages (username, state, lga, message, parent_id) VALUES (?, ?, ?, ?, ?) RETURNING id'
-        : 'INSERT INTO messages (username, state, lga, message, parent_id) VALUES (?, ?, ?, ?, ?)',
-      [msg.username, msg.state, msg.lga, msg.message, null]
-    );
+    const result = await dbRun('INSERT INTO messages (username, state, lga, message, parent_id) VALUES (?, ?, ?, ?, ?)', [msg.username, msg.state, msg.lga, msg.message, null]);
     // Mark as approved
     await dbRun(
       'UPDATE flagged_messages SET status = ?, reviewed_by = ?, reviewed_at = CURRENT_TIMESTAMP WHERE id = ?',
@@ -1180,7 +903,7 @@ app.post('/admin/approve/:id', verifyHttpToken, async (req, res) => {
     // Broadcast to room
     const room = `${msg.state}_${msg.lga}`;
     io.to(room).emit('chat message', {
-      id: USE_POSTGRES ? result.rows[0].id : result.lastID,
+      id: result.lastID,
       username: msg.username,
       message: msg.message,
       attachmentUrl: null,
@@ -1212,7 +935,7 @@ app.post('/admin/reject/:id', verifyHttpToken, async (req, res) => {
 
 // Admin dashboard page
 app.get('/admin-db', (req, res) => {
-  res.sendFile(path.join(__dirname, 'admin-db.html'));
+  res.sendFile(path.join(PUBLIC_DIR, 'admin', 'db.html'));
 });
 
 // Test endpoint: Check flagged_messages table health
@@ -1222,19 +945,12 @@ app.get('/admin/test-flagged', verifyHttpToken, async (req, res) => {
   }
   try {
     // Check if table exists and get structure
-    let tableInfo;
-    if (USE_POSTGRES) {
-      // PostgreSQL query for table structure
-      tableInfo = await dbAll(`
-        SELECT column_name as name, data_type as type 
-        FROM information_schema.columns 
-        WHERE table_name = 'flagged_messages' 
+    const tableInfo = await dbAll(`
+        SELECT column_name as name, data_type as type
+        FROM information_schema.columns
+        WHERE table_name = 'flagged_messages'
         ORDER BY ordinal_position
       `);
-    } else {
-      // SQLite query for table structure
-      tableInfo = await dbAll("SELECT * FROM pragma_table_info('flagged_messages')");
-    }
     
     const count = await dbAll('SELECT COUNT(*) as count FROM flagged_messages');
     const recent = await dbAll('SELECT * FROM flagged_messages ORDER BY created_at DESC LIMIT 5');
@@ -1309,23 +1025,13 @@ app.post('/admin/remove-duplicate-interactions', verifyHttpToken, async (req, re
     // For each duplicate group, keep only the first one (lowest id)
     let totalRemoved = 0;
     for (const dup of duplicates) {
-      const deleteQuery = USE_POSTGRES
-        ? `DELETE FROM interactions 
-           WHERE username = $1 AND message_id = $2 AND type = $3 
+      const deleteQuery = `DELETE FROM interactions
+           WHERE username = ? AND message_id = ? AND type = ?
            AND id NOT IN (
-             SELECT MIN(id) FROM interactions 
-             WHERE username = $1 AND message_id = $2 AND type = $3
-           )`
-        : `DELETE FROM interactions 
-           WHERE username = ? AND message_id = ? AND type = ? 
-           AND id NOT IN (
-             SELECT MIN(id) FROM interactions 
+             SELECT MIN(id) FROM interactions
              WHERE username = ? AND message_id = ? AND type = ?
            )`;
-      
-      const params = USE_POSTGRES 
-        ? [dup.username, dup.message_id, dup.type]
-        : [dup.username, dup.message_id, dup.type, dup.username, dup.message_id, dup.type];
+      const params = [dup.username, dup.message_id, dup.type, dup.username, dup.message_id, dup.type];
       
       await dbRun(deleteQuery, params);
       totalRemoved += (dup.count - 1); // Remove all but one
@@ -1346,19 +1052,9 @@ app.post('/admin/remove-duplicate-interactions', verifyHttpToken, async (req, re
 app.post('/admin/remove-duplicate-messages', verifyHttpToken, async (req, res) => {
   try {
     // Find duplicate messages (same username, message text, state, lga)
-    const duplicates = USE_POSTGRES
-      ? await dbAll(`
-          SELECT username, message, state, lga, 
+    const duplicates = await dbAll(`
+          SELECT username, message, state, lga,
                  MIN(id) as keep_id,
-                 COUNT(*) as count
-          FROM messages
-          GROUP BY username, message, state, lga
-          HAVING COUNT(*) > 1
-        `)
-      : await dbAll(`
-          SELECT username, message, state, lga, 
-                 MIN(id) as keep_id,
-                 GROUP_CONCAT(id) as all_ids,
                  COUNT(*) as count
           FROM messages
           GROUP BY username, message, state, lga
@@ -1372,9 +1068,7 @@ app.post('/admin/remove-duplicate-messages', verifyHttpToken, async (req, res) =
     let totalRemoved = 0;
     for (const dup of duplicates) {
       // Delete all duplicates except the first one (lowest id)
-      const deleteQuery = USE_POSTGRES
-        ? `DELETE FROM messages WHERE username = $1 AND message = $2 AND state = $3 AND lga = $4 AND id != $5`
-        : `DELETE FROM messages WHERE username = ? AND message = ? AND state = ? AND lga = ? AND id != ?`;
+      const deleteQuery = `DELETE FROM messages WHERE username = ? AND message = ? AND state = ? AND lga = ? AND id != ?`;
       
       const params = [dup.username, dup.message, dup.state, dup.lga, dup.keep_id];
       await dbRun(deleteQuery, params);
@@ -1448,10 +1142,7 @@ app.post('/admin/normalize-locations', async (req, res) => {
       const trimmedLga = (msg.lga || '').trim();
       if (trimmedState !== msg.state || trimmedLga !== msg.lga) {
         await dbRun(
-          USE_POSTGRES 
-            ? 'UPDATE messages SET state = $1, lga = $2 WHERE id = $3'
-            : 'UPDATE messages SET state = ?, lga = ? WHERE id = ?',
-          USE_POSTGRES ? [trimmedState, trimmedLga, msg.id] : [trimmedState, trimmedLga, msg.id]
+          'UPDATE messages SET state = ?, lga = ? WHERE id = ?', [trimmedState, trimmedLga, msg.id]
         );
         messagesUpdated++;
       }
@@ -1465,10 +1156,7 @@ app.post('/admin/normalize-locations', async (req, res) => {
       const trimmedLga = (user.lga || '').trim();
       if (trimmedState !== user.state || trimmedLga !== user.lga) {
         await dbRun(
-          USE_POSTGRES 
-            ? 'UPDATE users SET state = $1, lga = $2 WHERE username = $3'
-            : 'UPDATE users SET state = ?, lga = ? WHERE username = ?',
-          USE_POSTGRES ? [trimmedState, trimmedLga, user.username] : [trimmedState, trimmedLga, user.username]
+          'UPDATE users SET state = ?, lga = ? WHERE username = ?', [trimmedState, trimmedLga, user.username]
         );
         usersUpdated++;
       }
@@ -1811,12 +1499,10 @@ io.on('connection', (socket) => {
     try {
       console.log('Saving message from:', username, 'State:', state, 'LGA:', lga, parentId ? `(Reply to: ${parentId})` : '(Main message)');
       const result = await dbRun(
-        USE_POSTGRES
-          ? 'INSERT INTO messages (username, state, lga, message, parent_id, attachment_url, attachment_type) VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id'
-          : 'INSERT INTO messages (username, state, lga, message, parent_id, attachment_url, attachment_type) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        'INSERT INTO messages (username, state, lga, message, parent_id, attachment_url, attachment_type) VALUES (?, ?, ?, ?, ?, ?, ?)',
         [username, state, lga, message, parentId, attachmentUrl, attachmentType]
       );
-      const messageId = USE_POSTGRES ? result.rows[0].id : result.lastID;
+      const messageId = result.lastID;
       console.log('Message saved with ID:', messageId, parentId ? '(Reply)' : '(Main)');
       console.log('Broadcasting to room:', messageRoom, 'Users in room:', io.sockets.adapter.rooms.get(messageRoom)?.size || 0);
       
@@ -1900,7 +1586,7 @@ app.delete('/messages/:id', verifyHttpToken, async (req, res) => {
     await dbRun('DELETE FROM messages WHERE parent_id = ?', [id]);
     if (msg.attachment_url) {
       try {
-        const uploadPath = path.join(__dirname, msg.attachment_url.replace('/uploads/', 'uploads/'));
+        const uploadPath = path.join(UPLOADS_DIR, path.basename(msg.attachment_url));
         if (fs.existsSync(uploadPath)) {
           fs.unlinkSync(uploadPath);
         }

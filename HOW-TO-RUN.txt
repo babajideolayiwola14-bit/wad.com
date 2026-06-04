@@ -1,0 +1,45 @@
+WEB CHAT - HOW TO RUN (simple guide)
+====================================
+
+FIRST TIME ONLY
+---------------
+1. Double-click:  1-First-Time-Setup.bat
+   Wait until it says "SETUP FINISHED".
+
+2. Open the file:  .env
+   (If you do not see it, ask Cursor to show hidden files.)
+
+3. Find this line:
+   DATABASE_URL=
+
+4. Paste your database link from Render after the = sign
+   (Render.com -> your database -> Connect -> copy URL)
+
+5. Save .env (Ctrl+S)
+
+
+EVERY TIME YOU WANT TO USE THE APP ON YOUR PC
+---------------------------------------------
+1. Double-click:  2-Start-Chat.bat
+
+2. Your browser should open to the chat page.
+   If not, open Chrome/Edge and go to:
+   http://localhost:3001
+
+3. Leave the black window open while you chat.
+   Close that window when you are done.
+
+
+LIVE WEBSITE (Cloudflare / hosting)
+-----------------------------------
+You do NOT need these .bat steps to test your live site.
+Open your normal website address in the browser instead.
+
+See: HOW-TO-TEST-LIVE.txt
+
+
+NEED HELP?
+----------
+- "Node is not installed" -> install from https://nodejs.org (LTS)
+- "DATABASE_URL is required" -> fix step 3-5 in FIRST TIME above
+- Page won't load -> make sure 2-Start-Chat.bat window is still open
