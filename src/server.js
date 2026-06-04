@@ -553,6 +553,8 @@ app.post('/auth/request-reset', async (req, res) => {
 
     // Send email if SMTP configured
     if (smtpConfigured) {
+      const appUrl = (process.env.APP_URL || `${req.protocol}://${req.get('host')}`).replace(/\/$/, '');
+      const resetLink = `${appUrl}/reset.html?token=${token}`;
       try {
         const transporter = nodemailer.createTransport({
           host: process.env.SMTP_HOST,
@@ -563,8 +565,6 @@ app.post('/auth/request-reset', async (req, res) => {
             pass: process.env.SMTP_PASS
           }
         });
-        const appUrl = process.env.APP_URL || '';
-        const resetLink = (appUrl || '') + `/reset.html?token=${token}`;
         await transporter.sendMail({
           from: process.env.SMTP_FROM || process.env.SMTP_USER,
           to: user.email,
@@ -575,7 +575,13 @@ app.post('/auth/request-reset', async (req, res) => {
         return res.json({ message: 'If that account exists an email will be sent' });
       } catch (err) {
         console.error('Failed to send reset email:', err);
-        return res.status(500).json({ message: 'Could not send reset email. Try again later or contact support.' });
+        // Token is already saved — still let the user reset in the browser
+        return res.json({
+          message: 'Email could not be sent, but you can reset your password on the next page.',
+          token,
+          resetUrl: resetLink,
+          emailFailed: true
+        });
       }
     }
 

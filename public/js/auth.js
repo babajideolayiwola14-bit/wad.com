@@ -394,8 +394,8 @@ async function requestPasswordReset(username, email) {
             return requestPasswordReset(username, suppliedEmail.trim());
         }
 
-        if (data.token) {
-            window.location.href = `/reset.html?token=${encodeURIComponent(data.token)}`;
+        if (data.token || data.resetUrl) {
+            window.location.href = data.resetUrl || `/reset.html?token=${encodeURIComponent(data.token)}`;
             return;
         }
 
