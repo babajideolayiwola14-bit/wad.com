@@ -252,27 +252,6 @@ function startAuthenticatedChat() {
                 userInteractedMessageIds.add(item.message_id);
             });
             
-            // Store all messages for filtering
-            const allFeedMessages = JSON.parse(sessionStorage.getItem('feedMessages') || '[]');
-            window.allMessages = mainMessageInteractions.map(item => ({ id: item.message_id, message: item.message }));
-            
-            // Create View All button once
-            let viewAllBtn = document.getElementById('view-all-btn');
-            if (!viewAllBtn && allFeedMessages.length > 0) {
-                viewAllBtn = document.createElement('button');
-                viewAllBtn.id = 'view-all-btn';
-                viewAllBtn.textContent = 'View All Messages';
-                viewAllBtn.style.cssText = 'padding:8px 12px; margin-bottom:10px; background:#fff; color:#000; border:none; border-radius:4px; cursor:pointer;';
-                messagesDiv.parentElement.insertBefore(viewAllBtn, messagesDiv);
-                viewAllBtn.addEventListener('click', () => {
-                    // Show all hidden messages
-                    const allMessages = Array.from(messagesDiv.children);
-                    allMessages.forEach(msg => {
-                        msg.style.display = 'flex';
-                    });
-                });
-            }
-            
             // Group interactions by state first, then by LGA
             const stateGroups = {};
             mainMessageInteractions.forEach(item => {
