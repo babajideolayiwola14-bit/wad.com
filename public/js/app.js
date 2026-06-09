@@ -10,6 +10,7 @@ window.App = (function () {
 
     function setupAuthenticatedChrome(user) {
         LocationFeed.setSessionChrome(true);
+        closeMybitPanel();
 
         Guest.setWriteControlsDisabled(false);
 
@@ -25,6 +26,7 @@ window.App = (function () {
         Guest.teardown();
         window.chatLoaded = false;
         window.renderAuthenticatedFeed = null;
+        closeMybitPanel();
         showChatShell();
         LocationFeed.setSessionChrome(false);
         LocationFeed.initControls();
@@ -50,6 +52,7 @@ window.App = (function () {
     async function bootstrap() {
         Modals.init();
         Auth.bindForms();
+        initMybitMobileToggle();
         showChatShell();
 
         const token = Session.getToken();
@@ -60,10 +63,33 @@ window.App = (function () {
         }
     }
 
+    function closeMybitPanel() {
+        document.getElementById('profile-panel')?.classList.remove('show');
+        document.getElementById('profile-overlay')?.classList.remove('show');
+    }
+
+    function initMybitMobileToggle() {
+        const btn = document.getElementById('mybit-mobile-toggle');
+        const panel = document.getElementById('profile-panel');
+        const overlay = document.getElementById('profile-overlay');
+        if (!btn || btn.dataset.bound) return;
+        btn.dataset.bound = '1';
+
+        btn.addEventListener('click', () => {
+            panel?.classList.toggle('show');
+            overlay?.classList.toggle('show');
+        });
+
+        overlay?.addEventListener('click', () => {
+            closeMybitPanel();
+        });
+    }
+
     return {
         bootstrap,
         enterGuestMode,
-        enterAuthenticatedMode
+        enterAuthenticatedMode,
+        closeMybitPanel
     };
 })();
 

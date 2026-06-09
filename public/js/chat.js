@@ -413,6 +413,8 @@ function startAuthenticatedChat() {
             const messageLga = item.dataset.lga;
             if (!messageId || !messageState || !messageLga) return;
 
+            App.closeMybitPanel();
+
             LocationFeed.setSelectedLocation(messageState, messageLga);
             await LocationFeed.loadFeed(messageState, messageLga);
 

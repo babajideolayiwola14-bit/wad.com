@@ -529,20 +529,31 @@ button[type="submit"]:hover {
     }
 
     body.authenticated .profile-panel {
-        display: flex;
-        position: static;
-        width: 100%;
-        max-width: none;
-        height: auto;
-        max-height: 180px;
-        box-shadow: none;
-        z-index: auto;
-        border: 1px solid #e0e0e0;
-        border-radius: 8px;
+        display: none;
     }
 
-    body.authenticated .profile-overlay {
-        display: none !important;
+    body.authenticated .profile-panel.show {
+        display: flex;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 85%;
+        max-width: 320px;
+        height: 100vh;
+        max-height: none;
+        z-index: 1000;
+        box-shadow: 2px 0 10px rgba(0, 0, 0, 0.3);
+        border: none;
+        border-radius: 0;
+    }
+
+    body.authenticated .profile-overlay.show {
+        display: block !important;
+    }
+
+    body.authenticated .profile-interactions {
+        max-height: none;
+        flex: 1;
     }
 
     .profile-panel.show {
@@ -922,6 +933,30 @@ body:not(.authenticated) .profile-overlay {
     display: none !important;
 }
 
+.mybit-mobile-toggle {
+    display: none;
+    margin-bottom: 10px;
+    padding: 8px 14px;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    background: #f8f9fa;
+    color: #333;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    text-align: left;
+}
+
+.mybit-mobile-toggle:hover {
+    background: #eef0f2;
+}
+
+@media (max-width: 768px) {
+    body.authenticated .mybit-mobile-toggle {
+        display: inline-block;
+    }
+}
+
 .guest-location-bar {
     display: flex;
     align-items: center;
@@ -1102,21 +1137,32 @@ body:not(.authenticated) .profile-overlay {
     }
 
     body.authenticated .profile-panel {
+        display: none;
+    }
+
+    body.authenticated .profile-panel.show {
         display: flex;
-        position: static;
-        width: 100%;
-        max-width: none;
-        height: auto;
-        max-height: 180px;
-        box-shadow: none;
-        z-index: auto;
-        border: 1px solid #e0e0e0;
-        border-radius: 8px;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 85%;
+        max-width: 320px;
+        height: 100vh;
+        max-height: none;
+        z-index: 1000;
+        box-shadow: 2px 0 10px rgba(0, 0, 0, 0.3);
+        border: none;
+        border-radius: 0;
         padding: 12px;
     }
 
-    body.authenticated .profile-overlay {
-        display: none !important;
+    body.authenticated .profile-overlay.show {
+        display: block !important;
+    }
+
+    body.authenticated .profile-interactions {
+        max-height: none;
+        flex: 1;
     }
 
     .profile-panel.show {
