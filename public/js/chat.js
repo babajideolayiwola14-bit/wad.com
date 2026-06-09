@@ -611,10 +611,9 @@ function startAuthenticatedChat() {
 
     window.renderAuthenticatedFeed = renderFeed;
 
-    // Update header if reply page
+    // Update page title if reply page
     if (isReplyPage) {
-        const header = document.getElementById('chat-header');
-        if (header) header.textContent = `Replying to ${replyTo}`;
+        document.title = `Replying to ${replyTo}`;
     }
 
     // Logout handler
