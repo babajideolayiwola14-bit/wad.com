@@ -173,18 +173,10 @@ window.LocationFeed = (function () {
         document.getElementById('guest-location-bar')?.classList.remove('hidden');
     }
 
-    function setGuestHeaderChrome() {
-        document.getElementById('search-btn')?.classList.add('hidden');
-        document.getElementById('user-info')?.classList.add('hidden');
-        document.getElementById('logout')?.classList.add('hidden');
-        document.getElementById('toggle-profile')?.classList.add('hidden');
-    }
-
-    function setAuthenticatedHeaderChrome() {
-        document.getElementById('search-btn')?.classList.remove('hidden');
-        document.getElementById('user-info')?.classList.remove('hidden');
-        document.getElementById('logout')?.classList.remove('hidden');
-        document.getElementById('toggle-profile')?.classList.remove('hidden');
+    function setSessionChrome(authenticated) {
+        document.body.classList.toggle('authenticated', authenticated);
+        const logout = document.getElementById('logout');
+        if (logout) logout.classList.toggle('hidden', !authenticated);
     }
 
     function initControls() {
@@ -213,7 +205,7 @@ window.LocationFeed = (function () {
 
             const searchInput = document.getElementById('search-input');
             searchInput?.addEventListener('keypress', (e) => {
-                if (e.key === 'Enter' && !Session.isAuthenticated()) {
+                if (e.key === 'Enter') {
                     searchCurrentLocation(searchInput.value || '');
                 }
             });
@@ -235,8 +227,7 @@ window.LocationFeed = (function () {
         searchCurrentLocation,
         seedFromUser,
         teardownGuestSocket,
-        setGuestHeaderChrome,
-        setAuthenticatedHeaderChrome,
+        setSessionChrome,
         setOnLocationChange
     };
 })();

@@ -57,7 +57,6 @@ window.Guest = (function () {
     }
 
     function init() {
-        LocationFeed.setGuestHeaderChrome();
         setWriteControlsDisabled(true);
         bindWriteGuards();
     }

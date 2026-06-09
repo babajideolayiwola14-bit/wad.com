@@ -96,27 +96,7 @@ function startAuthenticatedChat() {
         });
     }
 
-    // Mobile profile toggle
-    const toggleProfileBtn = document.getElementById('toggle-profile');
-    const profilePanel = document.getElementById('profile-panel');
-    const profileOverlay = document.getElementById('profile-overlay');
-    
-    if (toggleProfileBtn && profilePanel) {
-        toggleProfileBtn.addEventListener('click', () => {
-            profilePanel.classList.toggle('show');
-            if (profileOverlay) {
-                profileOverlay.classList.toggle('show');
-            }
-        });
-    }
-    
-    // Close profile when clicking overlay
-    if (profileOverlay && profilePanel) {
-        profileOverlay.addEventListener('click', () => {
-            profilePanel.classList.remove('show');
-            profileOverlay.classList.remove('show');
-        });
-    }
+    // Mobile profile panel is shown inline when logged in (see CSS body.authenticated)
 
     // Request notification permission
     if ('Notification' in window && Notification.permission === 'default') {
@@ -454,11 +434,6 @@ function startAuthenticatedChat() {
             const messageLga = item.dataset.lga;
             if (!messageId || !messageState || !messageLga) return;
 
-            if (profilePanel && profilePanel.classList.contains('show')) {
-                profilePanel.classList.remove('show');
-                if (profileOverlay) profileOverlay.style.display = 'none';
-            }
-
             LocationFeed.setSelectedLocation(messageState, messageLga);
             await LocationFeed.loadFeed(messageState, messageLga);
 
@@ -481,17 +456,6 @@ function startAuthenticatedChat() {
         LocationFeed.tryLoadFromDropdowns();
     }
 
-    async function searchMessages(query) {
-        if (!query.trim()) return;
-        await LocationFeed.searchCurrentLocation(query);
-        const btn = document.getElementById('view-all-btn');
-        if (btn) btn.style.display = 'block';
-    }
-
-    // Search functionality
-    const searchInput = document.getElementById('search-input');
-    const searchBtn = document.getElementById('search-btn');
-
     let pendingAttachmentFile = null;
     if (attachBtn && attachmentInput) {
         attachBtn.addEventListener('click', () => {
@@ -508,26 +472,6 @@ function startAuthenticatedChat() {
         });
     }
     
-    if (searchBtn) {
-        searchBtn.addEventListener('click', () => {
-            const query = searchInput.value.trim();
-            if (query) {
-                searchMessages(query);
-            }
-        });
-    }
-    
-    if (searchInput) {
-        searchInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                const query = searchInput.value.trim();
-                if (query) {
-                    searchMessages(query);
-                }
-            }
-        });
-    }
-
     async function uploadAttachment(file) {
         const formData = new FormData();
         formData.append('file', file);

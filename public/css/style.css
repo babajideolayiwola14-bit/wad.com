@@ -528,6 +528,23 @@ button[type="submit"]:hover {
         padding: 12px;
     }
 
+    body.authenticated .profile-panel {
+        display: flex;
+        position: static;
+        width: 100%;
+        max-width: none;
+        height: auto;
+        max-height: 180px;
+        box-shadow: none;
+        z-index: auto;
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+    }
+
+    body.authenticated .profile-overlay {
+        display: none !important;
+    }
+
     .profile-panel.show {
         display: flex;
     }
@@ -901,31 +918,21 @@ button[type="submit"]:hover {
 
 /* Guest mode layout */
 .chat-header-bar {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 12px;
-    margin-bottom: 10px;
-    flex-wrap: wrap;
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #e9ecef;
 }
 
-.chat-header-left {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    flex-wrap: wrap;
-}
-
-.chat-header-left h2 {
+.chat-header-bar h2 {
     margin: 0;
     font-size: 1.25rem;
+    font-weight: 600;
+    color: #222;
 }
 
-.chat-header-right {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex-wrap: wrap;
+body:not(.authenticated) .profile-panel,
+body:not(.authenticated) .profile-overlay {
+    display: none !important;
 }
 
 .auth-actions {
@@ -1123,6 +1130,24 @@ button[type="submit"]:hover {
         z-index: 1000;
         overflow-y: auto;
         box-shadow: 2px 0 10px rgba(0,0,0,0.3);
+    }
+
+    body.authenticated .profile-panel {
+        display: flex;
+        position: static;
+        width: 100%;
+        max-width: none;
+        height: auto;
+        max-height: 180px;
+        box-shadow: none;
+        z-index: auto;
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        padding: 12px;
+    }
+
+    body.authenticated .profile-overlay {
+        display: none !important;
     }
 
     .profile-panel.show {

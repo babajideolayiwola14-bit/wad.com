@@ -9,12 +9,7 @@ window.App = (function () {
     }
 
     function setupAuthenticatedChrome(user) {
-        LocationFeed.setAuthenticatedHeaderChrome();
-
-        const currentUserEl = document.getElementById('current-user');
-        if (currentUserEl && user?.username) {
-            currentUserEl.textContent = user.username;
-        }
+        LocationFeed.setSessionChrome(true);
 
         Guest.setWriteControlsDisabled(false);
 
@@ -31,6 +26,7 @@ window.App = (function () {
         window.chatLoaded = false;
         window.renderAuthenticatedFeed = null;
         showChatShell();
+        LocationFeed.setSessionChrome(false);
         LocationFeed.initControls();
         Guest.init();
     }
