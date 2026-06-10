@@ -175,3 +175,184 @@ body.admin-page {
     font-size: 32px;
     margin-bottom: 12px;
 }
+
+.admin-container {
+    max-width: 1400px;
+    margin: 24px auto;
+    padding: 0 16px 24px;
+}
+
+.admin-panel {
+    background: #fff;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.admin-tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 20px;
+    border-bottom: 2px solid #ddd;
+    flex-wrap: wrap;
+}
+
+.admin-tab {
+    padding: 10px 16px;
+    background: #f7f7f7;
+    border: none;
+    border-radius: 4px 4px 0 0;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.admin-tab.active {
+    background: #007bff;
+    color: #fff;
+}
+
+.admin-tab-content {
+    display: none;
+}
+
+.admin-tab-content.active {
+    display: block;
+}
+
+.admin-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.admin-stat-card {
+    padding: 20px;
+    border-radius: 8px;
+    color: #fff;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.admin-stat-card.green { background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); }
+.admin-stat-card.orange { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); }
+.admin-stat-card.blue { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
+
+.admin-stat-value { font-size: 32px; font-weight: bold; margin-bottom: 5px; }
+.admin-stat-label { font-size: 14px; opacity: 0.9; }
+
+.admin-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+.admin-table th {
+    background: #007bff;
+    color: #fff;
+    padding: 12px;
+    text-align: left;
+}
+.admin-table td { padding: 10px; border-bottom: 1px solid #ddd; }
+.admin-table tr:hover { background: #f7f7f7; }
+
+.admin-btn {
+    padding: 10px 20px;
+    background: #28a745;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    margin-right: 8px;
+    margin-bottom: 10px;
+}
+
+.admin-btn.secondary { background: #17a2b8; }
+.admin-btn.primary { background: #007bff; }
+
+.admin-empty, .admin-loading {
+    text-align: center;
+    padding: 40px;
+    color: #999;
+}
+
+.review-item {
+    background: #f9f9f9;
+    padding: 16px;
+    margin-bottom: 12px;
+    border-radius: 8px;
+    border: 1px solid #eee;
+}
+
+.review-item-header {
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.review-user { font-weight: bold; color: #007bff; }
+.review-location { color: #666; font-size: 14px; }
+.review-reason { color: #dc3545; font-size: 14px; margin-bottom: 8px; }
+.review-message {
+    padding: 12px;
+    background: #fff;
+    border-radius: 4px;
+    margin: 10px 0;
+}
+
+.review-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.review-approve { padding: 8px 16px; background: #28a745; color: #fff; border: none; border-radius: 4px; cursor: pointer; }
+.review-reject { padding: 8px 16px; background: #dc3545; color: #fff; border: none; border-radius: 4px; cursor: pointer; }
+
+.query-panel { background: #f7f7f7; padding: 16px; border-radius: 8px; margin-bottom: 20px; }
+.query-input {
+    width: 100%;
+    padding: 10px;
+    font-family: 'Courier New', monospace;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    min-height: 80px;
+    box-sizing: border-box;
+}
+
+.filter-box {
+    margin: 10px 0;
+    padding: 10px;
+    background: #f7f7f7;
+    border-radius: 4px;
+}
+
+.filter-box input {
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    margin-right: 8px;
+}
+
+.export-btn {
+    padding: 8px 16px;
+    background: #28a745;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.message-text {
+    max-width: 400px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.query-result { max-height: 500px; overflow: auto; }
+
+.example-query {
+    background: #e9ecef;
+    padding: 4px 8px;
+    border-radius: 3px;
+    cursor: pointer;
+    display: inline-block;
+    margin: 4px 4px 4px 0;
+    font-size: 12px;
+}
+
+.example-query:hover { background: #dee2e6; }

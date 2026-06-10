@@ -258,19 +258,24 @@ app.use((req, res, next) => {
 app.set('trust proxy', 1);
 
 app.use(bodyParser.json());
-app.use(express.static(PUBLIC_DIR));
 
 app.get('/', (req, res) => {
   res.sendFile(path.join(PUBLIC_DIR, 'index.html'));
 });
 
 app.get('/admin', (req, res) => {
-  res.sendFile(path.join(PUBLIC_DIR, 'admin', 'hub.html'));
+  res.sendFile(path.join(PUBLIC_DIR, 'admin', 'dashboard.html'));
+});
+
+app.get('/admin-db', (req, res) => {
+  res.redirect(301, '/admin#messages');
 });
 
 app.get('/admin/review', (req, res) => {
-  res.sendFile(path.join(PUBLIC_DIR, 'admin', 'index.html'));
+  res.redirect(301, '/admin#review');
 });
+
+app.use(express.static(PUBLIC_DIR));
 
 if (!fs.existsSync(UPLOADS_DIR)) {
   fs.mkdirSync(UPLOADS_DIR, { recursive: true });
@@ -1028,11 +1033,6 @@ app.post('/admin/reject/:id', verifyHttpToken, requireAdmin, async (req, res) =>
     console.error('Failed to reject message:', err);
     res.status(500).json({ message: 'Failed to reject message' });
   }
-});
-
-// Admin dashboard page
-app.get('/admin-db', (req, res) => {
-  res.sendFile(path.join(PUBLIC_DIR, 'admin', 'db.html'));
 });
 
 // Test endpoint: Check flagged_messages table health

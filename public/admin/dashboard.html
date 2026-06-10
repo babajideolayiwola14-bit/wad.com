@@ -3,243 +3,45 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Database Viewer - Admin</title>
+    <title>Admin Panel</title>
     <link rel="stylesheet" href="/admin/admin.css">
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            background-color: #f0f0f0;
-            padding: 20px;
-            margin: 0;
-        }
-        .container {
-            max-width: 1400px;
-            margin: 0 auto;
-            background: white;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-        }
-        h1 {
-            color: #333;
-            margin-bottom: 10px;
-        }
-        .nav-tabs {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 20px;
-            border-bottom: 2px solid #ddd;
-        }
-        .nav-tab {
-            padding: 10px 20px;
-            background: #f7f7f7;
-            border: none;
-            border-radius: 4px 4px 0 0;
-            cursor: pointer;
-            font-size: 14px;
-            transition: background 0.3s;
-        }
-        .nav-tab.active {
-            background: #007bff;
-            color: white;
-        }
-        .nav-tab:hover {
-            background: #e0e0e0;
-        }
-        .nav-tab.active:hover {
-            background: #0056b3;
-        }
-        .tab-content {
-            display: none;
-        }
-        .tab-content.active {
-            display: block;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 10px;
-        }
-        th {
-            background: #007bff;
-            color: white;
-            padding: 12px;
-            text-align: left;
-            font-weight: 600;
-        }
-        td {
-            padding: 10px;
-            border-bottom: 1px solid #ddd;
-        }
-        tr:hover {
-            background: #f7f7f7;
-        }
-        .stats {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
-            margin-bottom: 20px;
-        }
-        .stat-card {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            padding: 20px;
-            border-radius: 8px;
-            color: white;
-        }
-        .stat-card.green {
-            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
-        }
-        .stat-card.orange {
-            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-        }
-        .stat-card.blue {
-            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-        }
-        .stat-value {
-            font-size: 32px;
-            font-weight: bold;
-            margin-bottom: 5px;
-        }
-        .stat-label {
-            font-size: 14px;
-            opacity: 0.9;
-        }
-        .refresh-btn {
-            padding: 10px 20px;
-            background: #28a745;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 14px;
-            margin-bottom: 10px;
-        }
-        .refresh-btn:hover {
-            background: #218838;
-        }
-        .loading {
-            text-align: center;
-            padding: 40px;
-            color: #999;
-        }
-        .empty {
-            text-align: center;
-            padding: 40px;
-            color: #999;
-        }
-        .deleted {
-            text-decoration: line-through;
-            color: #dc3545;
-        }
-        .message-text {
-            max-width: 400px;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
-        .query-panel {
-            background: #f7f7f7;
-            padding: 16px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-        }
-        .query-input {
-            width: 100%;
-            padding: 10px;
-            font-family: 'Courier New', monospace;
-            font-size: 14px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            min-height: 80px;
-            resize: vertical;
-        }
-        .run-query-btn {
-            padding: 10px 20px;
-            background: #007bff;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 14px;
-            margin-top: 8px;
-        }
-        .run-query-btn:hover {
-            background: #0056b3;
-        }
-        .query-examples {
-            margin-top: 10px;
-            font-size: 12px;
-            color: #666;
-        }
-        .example-query {
-            background: #e9ecef;
-            padding: 4px 8px;
-            border-radius: 3px;
-            cursor: pointer;
-            display: inline-block;
-            margin: 4px 4px 4px 0;
-        }
-        .example-query:hover {
-            background: #dee2e6;
-        }
-        .filter-box {
-            margin: 10px 0;
-            padding: 10px;
-            background: #f7f7f7;
-            border-radius: 4px;
-        }
-        .filter-box input {
-            padding: 8px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            margin-right: 8px;
-        }
-        .export-btn {
-            padding: 8px 16px;
-            background: #28a745;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 14px;
-            margin-left: 10px;
-        }
-        .export-btn:hover {
-            background: #218838;
-        }
-        .query-result {
-            max-height: 500px;
-            overflow: auto;
-        }
-    </style>
 </head>
 <body class="admin-page">
     <nav class="admin-nav" id="admin-nav"></nav>
     <div id="admin-login" class="admin-login-wrap"></div>
 
-    <div class="container" id="admin-content" style="display:none">
-        <h1>🗄️ Database Viewer</h1>
-        <p style="color:#666; margin-bottom:20px;">Admin panel to view all system data</p>
+    <div class="admin-container" id="admin-content" style="display:none">
+        <div class="admin-panel">
+        <h1>Admin Panel</h1>
+        <p style="color:#666; margin-bottom:20px;">Manage flagged messages, users, and site data.</p>
 
-        <div class="stats" id="stats"></div>
+        <div class="admin-stats" id="stats"></div>
 
-        <div class="nav-tabs">
-            <button class="nav-tab active" onclick="switchTab('query')">SQL Query</button>
-            <button class="nav-tab" onclick="switchTab('messages')">Messages</button>
-            <button class="nav-tab" onclick="switchTab('users')">Users</button>
-            <button class="nav-tab" onclick="switchTab('interactions')">Interactions</button>
-            <button class="nav-tab" onclick="switchTab('flagged')">Flagged Messages</button>
-            <button class="nav-tab" onclick="switchTab('analytics')">Analytics</button>
+        <div class="admin-tabs">
+            <button type="button" class="admin-tab active" data-tab="review" onclick="switchTab('review')">Review Queue</button>
+            <button type="button" class="admin-tab" data-tab="messages" onclick="switchTab('messages')">Messages</button>
+            <button type="button" class="admin-tab" data-tab="users" onclick="switchTab('users')">Users</button>
+            <button type="button" class="admin-tab" data-tab="interactions" onclick="switchTab('interactions')">Interactions</button>
+            <button type="button" class="admin-tab" data-tab="flagged" onclick="switchTab('flagged')">Flagged</button>
+            <button type="button" class="admin-tab" data-tab="analytics" onclick="switchTab('analytics')">Analytics</button>
+            <button type="button" class="admin-tab" data-tab="query" onclick="switchTab('query')">SQL Query</button>
         </div>
 
-        <button class="refresh-btn" onclick="loadAllData()">🔄 Refresh</button>
-        <button class="refresh-btn" onclick="testFlaggedTable()" style="background: #17a2b8;">🔍 Test Flagged Table</button>
+        <button type="button" class="admin-btn" onclick="loadAllData()">Refresh all</button>
+        <button type="button" class="admin-btn secondary" onclick="testFlaggedTable()">Test flagged table</button>
 
-        <div id="query-tab" class="tab-content active">
+        <div id="review-tab" class="admin-tab-content active">
+            <h2>Review Queue</h2>
+            <p style="color:#666;">Approve or reject pending flagged messages.</p>
+            <button type="button" class="admin-btn primary" onclick="loadReviewQueue()">Refresh queue</button>
+            <div id="review-list" class="admin-loading">Loading...</div>
+        </div>
+
+        <div id="query-tab" class="admin-tab-content">
             <h2>Custom SQL Query</h2>
             <div class="query-panel">
                 <textarea id="sql-query" class="query-input" placeholder="Enter your SQL query here...">SELECT * FROM messages ORDER BY created_at DESC LIMIT 50</textarea>
-                <button class="run-query-btn" onclick="runCustomQuery()">▶ Run Query</button>
+                <button type="button" class="admin-btn primary" onclick="runCustomQuery()">Run query</button>
                 <button class="export-btn" onclick="exportResults('csv')">📥 Export CSV</button>
                 <button class="export-btn" onclick="exportResults('json')">📥 Export JSON</button>
                 <div class="query-examples">
@@ -255,45 +57,46 @@
             <div id="query-result" class="query-result"></div>
         </div>
 
-        <div id="messages-tab" class="tab-content">
+        <div id="messages-tab" class="admin-tab-content">
             <h2>Messages</h2>
             <div class="filter-box">
                 <input type="text" id="msg-filter" placeholder="Filter by username, state, or message text..." oninput="filterMessages()">
                 <button class="export-btn" onclick="exportTable('messages')">📥 Export</button>
             </div>
-            <div id="messages-content" class="loading">Loading...</div>
+            <div id="messages-content" class="admin-loading">Loading...</div>
         </div>
 
-        <div id="users-tab" class="tab-content">
+        <div id="users-tab" class="admin-tab-content">
             <h2>Users</h2>
             <div class="filter-box">
                 <input type="text" id="user-filter" placeholder="Filter by username, state, or LGA..." oninput="filterUsers()">
                 <button class="export-btn" onclick="exportTable('users')">📥 Export</button>
             </div>
-            <div id="users-content" class="loading">Loading...</div>
+            <div id="users-content" class="admin-loading">Loading...</div>
         </div>
 
-        <div id="interactions-tab" class="tab-content">
+        <div id="interactions-tab" class="admin-tab-content">
             <h2>User Interactions</h2>
             <div class="filter-box">
                 <input type="text" id="interaction-filter" placeholder="Filter by username or type..." oninput="filterInteractions()">
                 <button class="export-btn" onclick="exportTable('interactions')">📥 Export</button>
             </div>
-            <div id="interactions-content" class="loading">Loading...</div>
+            <div id="interactions-content" class="admin-loading">Loading...</div>
         </div>
 
-        <div id="flagged-tab" class="tab-content">
+        <div id="flagged-tab" class="admin-tab-content">
             <h2>Flagged Messages</h2>
             <div class="filter-box">
                 <input type="text" id="flagged-filter" placeholder="Filter by username or status..." oninput="filterFlagged()">
                 <button class="export-btn" onclick="exportTable('flagged')">📥 Export</button>
             </div>
-            <div id="flagged-content" class="loading">Loading...</div>
+            <div id="flagged-content" class="admin-loading">Loading...</div>
         </div>
 
-        <div id="analytics-tab" class="tab-content">
+        <div id="analytics-tab" class="admin-tab-content">
             <h2>Analytics Dashboard</h2>
-            <div id="analytics-content" class="loading">Loading...</div>
+            <div id="analytics-content" class="admin-loading">Loading...</div>
+        </div>
         </div>
     </div>
 
@@ -303,23 +106,106 @@
             loginEl: 'admin-login',
             contentEl: 'admin-content',
             navEl: 'admin-nav',
-            active: 'db',
-            onReady: loadAllData
+            onReady() {
+                loadAllData();
+                const tab = (location.hash || '#review').slice(1) || 'review';
+                switchTab(tab);
+            }
         });
 
-        function authHeaders() {
-            return AdminAuth.authHeaders();
+        function switchTab(tabName) {
+            document.querySelectorAll('.admin-tab').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.tab === tabName);
+            });
+            document.querySelectorAll('.admin-tab-content').forEach(tab => {
+                tab.classList.toggle('active', tab.id === `${tabName}-tab`);
+            });
+            if (location.hash !== `#${tabName}`) {
+                history.replaceState(null, '', `#${tabName}`);
+            }
         }
 
-        function switchTab(tabName) {
-            document.querySelectorAll('.nav-tab').forEach(btn => btn.classList.remove('active'));
-            document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
-            
-            event.target.classList.add('active');
-            document.getElementById(`${tabName}-tab`).classList.add('active');
+        window.addEventListener('hashchange', () => {
+            const tab = (location.hash || '#review').slice(1) || 'review';
+            switchTab(tab);
+        });
+
+        async function loadReviewQueue() {
+            const list = document.getElementById('review-list');
+            try {
+                const res = await AdminAuth.fetchApi('/admin/flagged');
+                if (!res.ok) throw new Error('Failed to load');
+                const data = await res.json();
+                const pending = (data.flagged || []).filter(
+                    (item) => !item.status || item.status === 'pending'
+                );
+                renderReviewQueue(pending);
+            } catch (err) {
+                console.error('Review queue failed:', err);
+                list.innerHTML = '<div class="admin-empty">Failed to load review queue</div>';
+            }
+        }
+
+        function renderReviewQueue(items) {
+            const list = document.getElementById('review-list');
+            if (!items || items.length === 0) {
+                list.innerHTML = '<div class="admin-empty">No flagged messages to review</div>';
+                return;
+            }
+            list.innerHTML = items.map(item => `
+                <div class="review-item" data-review-id="${item.id}">
+                    <div class="review-item-header">
+                        <span class="review-user">${item.username}</span>
+                        <span class="review-location">${item.state} / ${item.lga}</span>
+                    </div>
+                    <div class="review-reason">${item.rejection_reason || 'Flagged for review'}</div>
+                    <div class="review-message">${item.message}</div>
+                    <div class="review-actions">
+                        <button type="button" class="review-approve" onclick="approveReview(${item.id})">Approve &amp; post</button>
+                        <button type="button" class="review-reject" onclick="rejectReview(${item.id})">Reject</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        async function approveReview(id) {
+            try {
+                const res = await AdminAuth.fetchApi(`/admin/approve/${id}`, { method: 'POST' });
+                if (!res.ok) {
+                    alert('Failed to approve message');
+                    return;
+                }
+                document.querySelector(`[data-review-id="${id}"]`)?.remove();
+                if (!document.querySelector('.review-item')) {
+                    renderReviewQueue([]);
+                }
+                loadStats();
+                loadFlagged();
+            } catch (err) {
+                console.error('Approve failed:', err);
+            }
+        }
+
+        async function rejectReview(id) {
+            try {
+                const res = await AdminAuth.fetchApi(`/admin/reject/${id}`, { method: 'POST' });
+                if (!res.ok) {
+                    alert('Failed to reject message');
+                    return;
+                }
+                document.querySelector(`[data-review-id="${id}"]`)?.remove();
+                if (!document.querySelector('.review-item')) {
+                    renderReviewQueue([]);
+                }
+                loadStats();
+                loadFlagged();
+            } catch (err) {
+                console.error('Reject failed:', err);
+            }
         }
 
         async function loadAllData() {
+            loadReviewQueue();
             loadStats();
             loadMessages();
             loadUsers();
@@ -394,14 +280,14 @@ Recent Records: ${data.recentRecords.length > 0 ? '\n' + JSON.stringify(data.rec
             const container = document.getElementById('query-result');
             
             if (!results || results.length === 0) {
-                container.innerHTML = '<div class="empty">Query returned no results</div>';
+                container.innerHTML = '<div class="admin-empty">Query returned no results</div>';
                 return;
             }
 
             const columns = Object.keys(results[0]);
             container.innerHTML = `
                 <p style="color:#28a745; margin:10px 0;">✓ Query returned ${results.length} rows</p>
-                <table>
+                <table class="admin-table">
                     <thead>
                         <tr>${columns.map(col => `<th>${col}</th>`).join('')}</tr>
                     </thead>
@@ -515,21 +401,21 @@ Recent Records: ${data.recentRecords.length > 0 ? '\n' + JSON.stringify(data.rec
                 ]);
 
                 document.getElementById('stats').innerHTML = `
-                    <div class="stat-card blue">
-                        <div class="stat-value">${messages.data?.length || 0}</div>
-                        <div class="stat-label">Total Messages</div>
+                    <div class="admin-stat-card blue">
+                        <div class="admin-stat-value">${messages.data?.length || 0}</div>
+                        <div class="admin-stat-label">Total Messages</div>
                     </div>
-                    <div class="stat-card green">
-                        <div class="stat-value">${users.data?.length || 0}</div>
-                        <div class="stat-label">Total Users</div>
+                    <div class="admin-stat-card green">
+                        <div class="admin-stat-value">${users.data?.length || 0}</div>
+                        <div class="admin-stat-label">Total Users</div>
                     </div>
-                    <div class="stat-card">
-                        <div class="stat-value">${interactions.data?.length || 0}</div>
-                        <div class="stat-label">Interactions</div>
+                    <div class="admin-stat-card">
+                        <div class="admin-stat-value">${interactions.data?.length || 0}</div>
+                        <div class="admin-stat-label">Interactions</div>
                     </div>
-                    <div class="stat-card orange">
-                        <div class="stat-value">${flagged.flagged?.length || 0}</div>
-                        <div class="stat-label">Flagged</div>
+                    <div class="admin-stat-card orange">
+                        <div class="admin-stat-value">${flagged.flagged?.length || 0}</div>
+                        <div class="admin-stat-label">Flagged</div>
                     </div>
                 `;
             } catch (err) {
@@ -546,12 +432,12 @@ Recent Records: ${data.recentRecords.length > 0 ? '\n' + JSON.stringify(data.rec
                 cachedData.messages = data.data;
                 const content = document.getElementById('messages-content');
                 if (!data.data || data.data.length === 0) {
-                    content.innerHTML = '<div class="empty">No messages in database</div>';
+                    content.innerHTML = '<div class="admin-empty">No messages in database</div>';
                     return;
                 }
 
                 content.innerHTML = `
-                    <table>
+                    <table class="admin-table">
                         <thead>
                             <tr>
                                 <th>ID</th>
@@ -580,7 +466,7 @@ Recent Records: ${data.recentRecords.length > 0 ? '\n' + JSON.stringify(data.rec
                 `;
             } catch (err) {
                 console.error('Failed to load messages:', err);
-                document.getElementById('messages-content').innerHTML = '<div class="empty">Failed to load messages</div>';
+                document.getElementById('messages-content').innerHTML = '<div class="admin-empty">Failed to load messages</div>';
             }
         }
 
@@ -593,12 +479,12 @@ Recent Records: ${data.recentRecords.length > 0 ? '\n' + JSON.stringify(data.rec
                 cachedData.users = data.data;
                 const content = document.getElementById('users-content');
                 if (!data.data || data.data.length === 0) {
-                    content.innerHTML = '<div class="empty">No users in database</div>';
+                    content.innerHTML = '<div class="admin-empty">No users in database</div>';
                     return;
                 }
 
                 content.innerHTML = `
-                    <table>
+                    <table class="admin-table">
                         <thead>
                             <tr>
                                 <th>Username</th>
@@ -631,7 +517,7 @@ Recent Records: ${data.recentRecords.length > 0 ? '\n' + JSON.stringify(data.rec
                 `;
             } catch (err) {
                 console.error('Failed to load users:', err);
-                document.getElementById('users-content').innerHTML = '<div class="empty">Failed to load users</div>';
+                document.getElementById('users-content').innerHTML = '<div class="admin-empty">Failed to load users</div>';
             }
         }
 
@@ -644,12 +530,12 @@ Recent Records: ${data.recentRecords.length > 0 ? '\n' + JSON.stringify(data.rec
                 cachedData.interactions = data.data;
                 const content = document.getElementById('interactions-content');
                 if (!data.data || data.data.length === 0) {
-                    content.innerHTML = '<div class="empty">No interactions in database</div>';
+                    content.innerHTML = '<div class="admin-empty">No interactions in database</div>';
                     return;
                 }
 
                 content.innerHTML = `
-                    <table>
+                    <table class="admin-table">
                         <thead>
                             <tr>
                                 <th>ID</th>
@@ -674,7 +560,7 @@ Recent Records: ${data.recentRecords.length > 0 ? '\n' + JSON.stringify(data.rec
                 `;
             } catch (err) {
                 console.error('Failed to load interactions:', err);
-                document.getElementById('interactions-content').innerHTML = '<div class="empty">Failed to load interactions</div>';
+                document.getElementById('interactions-content').innerHTML = '<div class="admin-empty">Failed to load interactions</div>';
             }
         }
 
@@ -687,12 +573,12 @@ Recent Records: ${data.recentRecords.length > 0 ? '\n' + JSON.stringify(data.rec
                 cachedData.flagged = data.flagged;
                 const content = document.getElementById('flagged-content');
                 if (!data.flagged || data.flagged.length === 0) {
-                    content.innerHTML = '<div class="empty">No flagged messages</div>';
+                    content.innerHTML = '<div class="admin-empty">No flagged messages</div>';
                     return;
                 }
 
                 content.innerHTML = `
-                    <table>
+                    <table class="admin-table">
                         <thead>
                             <tr>
                                 <th>ID</th>
@@ -721,7 +607,7 @@ Recent Records: ${data.recentRecords.length > 0 ? '\n' + JSON.stringify(data.rec
                 `;
             } catch (err) {
                 console.error('Failed to load flagged:', err);
-                document.getElementById('flagged-content').innerHTML = '<div class="empty">Failed to load flagged messages</div>';
+                document.getElementById('flagged-content').innerHTML = '<div class="admin-empty">Failed to load flagged messages</div>';
             }
         }
 
@@ -799,7 +685,7 @@ Recent Records: ${data.recentRecords.length > 0 ? '\n' + JSON.stringify(data.rec
                 `;
             } catch (err) {
                 console.error('Failed to load analytics:', err);
-                document.getElementById('analytics-content').innerHTML = '<div class="empty">Failed to load analytics</div>';
+                document.getElementById('analytics-content').innerHTML = '<div class="admin-empty">Failed to load analytics</div>';
             }
         }
 

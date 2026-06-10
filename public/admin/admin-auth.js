@@ -62,14 +62,12 @@ window.AdminAuth = (function () {
         return res;
     }
 
-    function renderNav(container, active) {
+    function renderNav(container) {
         if (!container) return;
         const user = getUser();
         container.innerHTML = `
             <div class="admin-nav-inner">
-                <a href="/admin" class="admin-nav-brand">Admin</a>
-                <a href="/admin/review" class="admin-nav-link${active === 'review' ? ' active' : ''}">Review Queue</a>
-                <a href="/admin-db" class="admin-nav-link${active === 'db' ? ' active' : ''}">Database</a>
+                <span class="admin-nav-brand">Admin Panel</span>
                 <a href="/" class="admin-nav-link">Main site</a>
                 <span class="admin-nav-user">${user?.username || ''}</span>
                 <button type="button" class="admin-nav-logout" id="admin-logout-btn">Logout</button>
@@ -125,7 +123,7 @@ window.AdminAuth = (function () {
         function showApp() {
             if (loginEl) loginEl.style.display = 'none';
             if (contentEl) contentEl.style.display = '';
-            if (navEl) renderNav(navEl, opts.active);
+            if (navEl) renderNav(navEl);
             opts.onReady();
         }
 
