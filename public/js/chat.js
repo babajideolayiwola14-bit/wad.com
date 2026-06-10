@@ -55,12 +55,24 @@ function startAuthenticatedChat() {
 
     // Wait for socket connection before loading location feed
     socket.on('connect', () => {
-        console.log('Socket connected, loading location feed...');
-        LocationFeed.tryLoadFromDropdowns();
+        console.log('Socket connected, joining location room...');
+        const loc = LocationFeed.getSelectedLocation();
+        if (loc.state && loc.lga) {
+            socket.emit('location:join', { state: loc.state, lga: loc.lga });
+        }
+
+        const box = document.getElementById('chat-messages');
+        const hasMessages = box?.querySelector('.message-item, .reply-message');
+        if (!hasMessages) {
+            LocationFeed.tryLoadFromDropdowns();
+        } else if (!LocationFeed.shouldSkipConnectReload()) {
+            LocationFeed.scheduleConnectReload();
+        }
     });
 
+    const normalizeId = (id) => FeedView.normalizeMessageId(id);
+
     const messagesDiv = document.getElementById('chat-messages');
-    const messageForm = document.getElementById('message-form');
     const messageInput = document.getElementById('message');
     const attachmentInput = document.getElementById('attachment-input');
     const attachBtn = document.getElementById('attach-btn');
@@ -249,7 +261,7 @@ function startAuthenticatedChat() {
             // Update interacted message IDs for notification checking
             userInteractedMessageIds.clear();
             mainMessageInteractions.forEach(item => {
-                userInteractedMessageIds.add(item.message_id);
+                userInteractedMessageIds.add(normalizeId(item.message_id));
             });
             
             // Group interactions by state first, then by LGA
@@ -492,14 +504,14 @@ function startAuthenticatedChat() {
         console.log('Cleared messagesDiv');
         
         // First render all top-level messages
-        const topLevelMessages = messages.filter(m => !m.parent_id);
+        const topLevelMessages = messages.filter(FeedView.isTopLevelMessage);
         console.log('Top-level messages:', topLevelMessages.length);
         console.log('Top-level message details:', topLevelMessages);
         topLevelMessages.forEach(msg => {
             console.log('Rendering message:', msg.id, msg.username, msg.message);
             const messageElement = document.createElement('div');
             messageElement.classList.add('message-item');
-            messageElement.dataset.id = msg.id;
+            messageElement.dataset.id = normalizeId(msg.id);
             const own = msg.username === currentUsername;
             const actionsHtml = `<button class="reply-btn" data-username="${msg.username}" title="Reply">\uD83D\uDCAC</button> <button class="share-btn" data-message="${msg.message}" data-id="${msg.id}" title="Share">\u2197</button>${own ? ` <button class="delete-btn" data-id="${msg.id}" title="Delete">🗑️</button>` : ''}`;
             messageElement.innerHTML = `
@@ -526,14 +538,17 @@ function startAuthenticatedChat() {
         // Optimized nested reply rendering with O(n) complexity
         // Group replies by parent_id for efficient lookup
         const replyMap = {};
-        messages.filter(m => m.parent_id).forEach(msg => {
-            if (!replyMap[msg.parent_id]) replyMap[msg.parent_id] = [];
-            replyMap[msg.parent_id].push(msg);
+        messages.filter(m => !FeedView.isTopLevelMessage(m)).forEach(msg => {
+            const pid = normalizeId(msg.parent_id);
+            if (pid == null) return;
+            if (!replyMap[pid]) replyMap[pid] = [];
+            replyMap[pid].push(msg);
         });
         
         // Recursive function to render replies
         function renderRepliesRecursive(parentId, parentElement) {
-            const replies = replyMap[parentId];
+            const pid = normalizeId(parentId);
+            const replies = replyMap[pid];
             if (!replies || replies.length === 0) return;
             
             const repliesDiv = parentElement.querySelector(':scope > .replies');
@@ -542,7 +557,7 @@ function startAuthenticatedChat() {
             replies.forEach(msg => {
                 const replyItem = document.createElement('div');
                 replyItem.classList.add('reply-message');
-                replyItem.dataset.id = msg.id;
+                replyItem.dataset.id = normalizeId(msg.id);
                 const cleanMessage = msg.message.replace(/^@\w+\s*/, '');
                 const own = msg.username === currentUsername;
                 const actionsHtml = `<button class="reply-btn" data-username="${msg.username}" title="Reply">\uD83D\uDCAC</button> <button class="share-btn" data-message="${cleanMessage}" data-id="${msg.id}" title="Share">\u2197</button>${own ? ` <button class="delete-btn" data-id="${msg.id}" title="Delete">🗑️</button>` : ''}`;
@@ -557,7 +572,7 @@ function startAuthenticatedChat() {
                 repliesDiv.appendChild(replyItem);
                 
                 // Recursively render nested replies
-                renderRepliesRecursive(msg.id, replyItem);
+                renderRepliesRecursive(normalizeId(msg.id), replyItem);
                 
                 // Update reply count for this message
                 const nestedReplies = replyItem.querySelector(':scope > .replies');
@@ -573,7 +588,7 @@ function startAuthenticatedChat() {
         
         // Render replies for all top-level messages
         document.querySelectorAll('.message-item').forEach(item => {
-            const messageId = parseInt(item.dataset.id);
+            const messageId = normalizeId(item.dataset.id);
             renderRepliesRecursive(messageId, item);
             
             // Update reply count for top-level messages
@@ -667,14 +682,22 @@ function startAuthenticatedChat() {
 
     // Listen for incoming messages
     socket.on('chat message', (data) => {
+        LocationFeed.cancelConnectReload();
+
+        const msgId = normalizeId(data.id);
+        const parentId = normalizeId(data.parentId);
+
+        if (msgId != null && document.querySelector(`.message-item[data-id="${msgId}"], .reply-message[data-id="${msgId}"]`)) {
+            return;
+        }
+
         // If this is user's own message, automatically track it
-        if (data.username === currentUsername && !data.parentId) {
-            // Auto-record as "sent" interaction
+        if (data.username === currentUsername && !parentId) {
             recordInteraction(data.id, 'sent');
         }
         
         // Check if this is a reply to user's interacted message
-        if (data.parentId && userInteractedMessageIds.has(data.parentId) && data.username !== currentUsername) {
+        if (parentId != null && userInteractedMessageIds.has(parentId) && data.username !== currentUsername) {
             // Show notification
             if ('Notification' in window && Notification.permission === 'granted') {
                 new Notification('New Reply', {
@@ -697,7 +720,7 @@ function startAuthenticatedChat() {
         }
         const messageElement = document.createElement('div');
         messageElement.classList.add('message-item');
-        messageElement.dataset.id = data.id;
+        messageElement.dataset.id = msgId;
         const own = data.username === currentUsername;
         const actionsHtml = `<button class="reply-btn" data-username="${data.username}" title="Reply">\uD83D\uDCAC</button> <button class="share-btn" data-message="${data.message}" data-id="${data.id}" title="Share">\u2197</button>${own ? ` <button class="delete-btn" data-id="${data.id}" title="Delete">🗑️</button>` : ''}`;
         messageElement.innerHTML = `
@@ -709,61 +732,67 @@ function startAuthenticatedChat() {
             <div class="replies" style="display:none"></div>
         `;
         
-        if (data.parentId) {
-            // It's a reply, add to parent's replies
-            const parentElement = document.querySelector(`[data-id="${data.parentId}"]`);
+        if (parentId != null) {
+            const parentElement = document.querySelector(
+                `.message-item[data-id="${parentId}"], .reply-message[data-id="${parentId}"]`
+            );
             if (parentElement) {
-                const repliesDiv = parentElement.querySelector('.replies');
-                const replyItem = document.createElement('div');
-                replyItem.classList.add('reply-message');
-                replyItem.dataset.id = data.id;
-                const cleanMessage = data.message.replace(/^@\w+\s*/, ''); // Remove @username from display
-                const ownReply = data.username === currentUsername;
-                const replyActions = `<button class="reply-btn" data-username="${data.username}" title="Reply">\uD83D\uDCAC</button> <button class="share-btn" data-message="${cleanMessage}" data-id="${data.id}" title="Share">\u2197</button>${ownReply ? ` <button class="delete-btn" data-id="${data.id}" title="Delete">🗑️</button>` : ''}`;
-                replyItem.innerHTML = `
-                    <div style="display: flex; align-items: center; width: 100%; gap: 8px;">
-                        <div class="message-text"><strong>${data.username}:</strong> ${cleanMessage} <small>(${new Date(data.timestamp).toLocaleTimeString()})</small> <span class="reply-count" style="display:none"></span></div>
-                        <div class="message-actions">${replyActions}</div>
-                    </div>
-                    ${getAttachmentMarkup(data.attachmentUrl, data.attachmentType)}
-                    <div class="replies" style="display:none"></div>
-                `;
-                repliesDiv.appendChild(replyItem);
-                
-                // Update reply count for the immediate parent
-                const replyCount = parentElement.querySelector('.reply-count');
-                const currentCount = repliesDiv.children.length;
-                if (replyCount) {
-                    replyCount.innerHTML = `<span style="font-size:16px;margin-right:4px;">\uD83D\uDCAC</span>${currentCount}`;
-                    replyCount.style.display = 'inline';
-                    replyCount.style.cursor = 'pointer';
-                }
-                
-                // If parent is itself a reply, update its parent's count too (for nested replies)
-                if (parentElement.classList.contains('reply-message')) {
-                    const grandparent = parentElement.parentElement.closest('.message-item, .reply-message');
-                    if (grandparent) {
-                        const grandparentReplies = grandparent.querySelector(':scope > .replies');
-                        const grandparentCount = grandparentReplies ? grandparentReplies.children.length : 0;
-                        const grandparentReplyCount = grandparent.querySelector('.reply-count');
-                        if (grandparentReplyCount && grandparentCount > 0) {
-                            grandparentReplyCount.innerHTML = `<span style="font-size:16px;margin-right:4px;">\uD83D\uDCAC</span>${grandparentCount}`;
-                            grandparentReplyCount.style.display = 'inline';
-                            grandparentReplyCount.style.cursor = 'pointer';
+                const repliesDiv = parentElement.querySelector(':scope > .replies');
+                if (repliesDiv) {
+                    repliesDiv.style.display = 'block';
+                    const replyItem = document.createElement('div');
+                    replyItem.classList.add('reply-message');
+                    replyItem.dataset.id = msgId;
+                    const cleanMessage = data.message.replace(/^@\w+\s*/, '');
+                    const ownReply = data.username === currentUsername;
+                    const replyActions = `<button class="reply-btn" data-username="${data.username}" title="Reply">\uD83D\uDCAC</button> <button class="share-btn" data-message="${cleanMessage}" data-id="${data.id}" title="Share">\u2197</button>${ownReply ? ` <button class="delete-btn" data-id="${data.id}" title="Delete">🗑️</button>` : ''}`;
+                    replyItem.innerHTML = `
+                        <div style="display: flex; align-items: center; width: 100%; gap: 8px;">
+                            <div class="message-text"><strong>${data.username}:</strong> ${cleanMessage} <small>(${new Date(data.timestamp).toLocaleTimeString()})</small> <span class="reply-count" style="display:none"></span></div>
+                            <div class="message-actions">${replyActions}</div>
+                        </div>
+                        ${getAttachmentMarkup(data.attachmentUrl, data.attachmentType)}
+                        <div class="replies" style="display:none"></div>
+                    `;
+                    repliesDiv.appendChild(replyItem);
+                    
+                    const replyCount = parentElement.querySelector('.reply-count');
+                    const currentCount = repliesDiv.children.length;
+                    if (replyCount) {
+                        replyCount.innerHTML = `<span style="font-size:16px;margin-right:4px;">\uD83D\uDCAC</span>${currentCount}`;
+                        replyCount.style.display = 'inline';
+                        replyCount.style.cursor = 'pointer';
+                    }
+                    
+                    if (parentElement.classList.contains('reply-message')) {
+                        const grandparent = parentElement.parentElement.closest('.message-item, .reply-message');
+                        if (grandparent) {
+                            const grandparentReplies = grandparent.querySelector(':scope > .replies');
+                            const grandparentCount = grandparentReplies ? grandparentReplies.children.length : 0;
+                            const grandparentReplyCount = grandparent.querySelector('.reply-count');
+                            if (grandparentReplyCount && grandparentCount > 0) {
+                                grandparentReplyCount.innerHTML = `<span style="font-size:16px;margin-right:4px;">\uD83D\uDCAC</span>${grandparentCount}`;
+                                grandparentReplyCount.style.display = 'inline';
+                                grandparentReplyCount.style.cursor = 'pointer';
+                            }
                         }
                     }
+                    messagesDiv.scrollTop = messagesDiv.scrollHeight;
                 }
+            } else {
+                LocationFeed.scheduleFeedRefresh();
             }
-        } else {
-            // Regular message
-            messagesDiv.appendChild(messageElement);
-            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+            return;
         }
+
+        messagesDiv.appendChild(messageElement);
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
     });
 
     // Listen for deletions
     socket.on('message deleted', ({ id }) => {
-        const item = document.querySelector(`.message-item[data-id="${id}"], .reply-message[data-id="${id}"]`);
+        const msgId = normalizeId(id);
+        const item = document.querySelector(`.message-item[data-id="${msgId}"], .reply-message[data-id="${msgId}"]`);
         if (item) {
             const isMainMessage = item.classList.contains('message-item');
             if (isMainMessage) {
@@ -905,7 +934,15 @@ function startAuthenticatedChat() {
                         }
                         const payloadMessage = message ? `@${replyTo} ${message}` : `@${replyTo}`;
                         const { state, lga } = LocationFeed.getSelectedLocation();
-                        socket.emit('chat message', { message: payloadMessage, parentId, attachmentUrl, attachmentType, state, lga });
+                        LocationFeed.markRecentSend();
+                        socket.emit('chat message', {
+                            message: payloadMessage,
+                            parentId: normalizeId(parentId),
+                            attachmentUrl,
+                            attachmentType,
+                            state,
+                            lga
+                        });
                         if (parentId) {
                             console.log('Reply sent, recording interaction for parent:', parentId);
                             await recordInteraction(parentId, 'reply');
@@ -964,6 +1001,7 @@ function startAuthenticatedChat() {
                     message = `@${replyTo} ${message}`;
                 }
                 const { state, lga } = LocationFeed.getSelectedLocation();
+                LocationFeed.markRecentSend();
                 socket.emit('chat message', { message, parentId: null, attachmentUrl, attachmentType, state, lga });
                 messageInput.textContent = '';
                 if (attachmentName) attachmentName.textContent = '';

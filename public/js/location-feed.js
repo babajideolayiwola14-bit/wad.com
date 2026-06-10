@@ -7,6 +7,9 @@ window.LocationFeed = (function () {
     let controlsBound = false;
     let currentLocation = { state: '', lga: '' };
     let onLocationChange = null;
+    let connectReloadTimer = null;
+    let feedRefreshTimer = null;
+    let lastMessageSendAt = 0;
 
     function getStateSelect() {
         return document.getElementById('guest-state');
@@ -90,10 +93,15 @@ window.LocationFeed = (function () {
 
     async function searchCurrentLocation(query) {
         const { state, lga } = getSelectedLocation();
-        if (!state || !lga || !query.trim()) return;
+        if (!state || !lga) return;
+
+        const q = (query || '').trim();
+        if (!q) {
+            return loadFeed(state, lga);
+        }
 
         try {
-            const url = `/search/public?state=${encodeURIComponent(state)}&lga=${encodeURIComponent(lga)}&q=${encodeURIComponent(query)}`;
+            const url = `/search/public?state=${encodeURIComponent(state)}&lga=${encodeURIComponent(lga)}&q=${encodeURIComponent(q)}`;
             const res = await fetch(url);
             const data = await res.json().catch(() => ({}));
             if (!res.ok) throw new Error(data.message || 'Search failed');
@@ -214,6 +222,36 @@ window.LocationFeed = (function () {
         tryLoadFromDropdowns();
     }
 
+    function markRecentSend() {
+        lastMessageSendAt = Date.now();
+    }
+
+    function shouldSkipConnectReload() {
+        return lastMessageSendAt && (Date.now() - lastMessageSendAt < 2500);
+    }
+
+    function cancelConnectReload() {
+        clearTimeout(connectReloadTimer);
+        connectReloadTimer = null;
+    }
+
+    function scheduleConnectReload() {
+        cancelConnectReload();
+        connectReloadTimer = setTimeout(() => {
+            connectReloadTimer = null;
+            if (shouldSkipConnectReload()) return;
+            tryLoadFromDropdowns();
+        }, 800);
+    }
+
+    function scheduleFeedRefresh() {
+        clearTimeout(feedRefreshTimer);
+        feedRefreshTimer = setTimeout(() => {
+            feedRefreshTimer = null;
+            tryLoadFromDropdowns();
+        }, 400);
+    }
+
     function setOnLocationChange(callback) {
         onLocationChange = callback;
     }
@@ -228,6 +266,11 @@ window.LocationFeed = (function () {
         seedFromUser,
         teardownGuestSocket,
         setSessionChrome,
-        setOnLocationChange
+        setOnLocationChange,
+        markRecentSend,
+        shouldSkipConnectReload,
+        cancelConnectReload,
+        scheduleConnectReload,
+        scheduleFeedRefresh
     };
 })();

@@ -3,6 +3,16 @@
  * @see docs/GUEST_MODE.md
  */
 window.FeedView = (function () {
+    function normalizeMessageId(id) {
+        if (id == null || id === '') return null;
+        const n = Number(id);
+        return Number.isNaN(n) ? null : n;
+    }
+
+    function isTopLevelMessage(m) {
+        return normalizeMessageId(m.parent_id) === null;
+    }
+
     function getAttachmentMarkup(url, type) {
         if (!url) return '';
         if (type && type.startsWith('image')) {
@@ -34,7 +44,7 @@ window.FeedView = (function () {
         sessionStorage.setItem('feedMessages', JSON.stringify(messages));
         container.innerHTML = '';
 
-        const topLevelMessages = messages.filter(m => !m.parent_id);
+        const topLevelMessages = messages.filter(isTopLevelMessage);
         if (topLevelMessages.length === 0 && messages.length === 0) {
             container.innerHTML = '<p class="feed-hint">No messages yet in this location.</p>';
             return;
@@ -43,7 +53,7 @@ window.FeedView = (function () {
         topLevelMessages.forEach(msg => {
             const messageElement = document.createElement('div');
             messageElement.classList.add('message-item');
-            messageElement.dataset.id = msg.id;
+            messageElement.dataset.id = normalizeMessageId(msg.id);
             const actionsHtml = buildActionsHtml(msg, currentUsername, readOnly);
             messageElement.innerHTML = `
                 <div style="display:flex;align-items:center;width:100%;gap:8px;">
@@ -57,13 +67,16 @@ window.FeedView = (function () {
         });
 
         const replyMap = {};
-        messages.filter(m => m.parent_id).forEach(msg => {
-            if (!replyMap[msg.parent_id]) replyMap[msg.parent_id] = [];
-            replyMap[msg.parent_id].push(msg);
+        messages.filter(m => !isTopLevelMessage(m)).forEach(msg => {
+            const pid = normalizeMessageId(msg.parent_id);
+            if (pid == null) return;
+            if (!replyMap[pid]) replyMap[pid] = [];
+            replyMap[pid].push(msg);
         });
 
         function renderRepliesRecursive(parentId, parentElement) {
-            const replies = replyMap[parentId];
+            const pid = normalizeMessageId(parentId);
+            const replies = replyMap[pid];
             if (!replies || replies.length === 0) return;
 
             const repliesDiv = parentElement.querySelector(':scope > .replies');
@@ -72,7 +85,7 @@ window.FeedView = (function () {
             replies.forEach(msg => {
                 const replyItem = document.createElement('div');
                 replyItem.classList.add('reply-message');
-                replyItem.dataset.id = msg.id;
+                replyItem.dataset.id = normalizeMessageId(msg.id);
                 const cleanMessage = msg.message.replace(/^@\w+\s*/, '');
                 const actionsHtml = buildActionsHtml({ ...msg, message: cleanMessage }, currentUsername, readOnly);
                 replyItem.innerHTML = `
@@ -84,13 +97,13 @@ window.FeedView = (function () {
                     <div class="replies" style="display:none"></div>
                 `;
                 repliesDiv.appendChild(replyItem);
-                renderRepliesRecursive(msg.id, replyItem);
+                renderRepliesRecursive(normalizeMessageId(msg.id), replyItem);
             });
         }
 
         topLevelMessages.forEach(msg => {
-            const item = container.querySelector(`.message-item[data-id="${msg.id}"]`);
-            if (item) renderRepliesRecursive(msg.id, item);
+            const item = container.querySelector(`.message-item[data-id="${normalizeMessageId(msg.id)}"]`);
+            if (item) renderRepliesRecursive(normalizeMessageId(msg.id), item);
         });
 
         finalizeThreads(container, readOnly);
@@ -113,5 +126,5 @@ window.FeedView = (function () {
         });
     }
 
-    return { render, getAttachmentMarkup };
+    return { render, getAttachmentMarkup, normalizeMessageId, isTopLevelMessage };
 })();
