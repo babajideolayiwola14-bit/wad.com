@@ -4,17 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin Review Queue</title>
+    <link rel="stylesheet" href="/admin/admin.css">
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            background-color: #f0f0f0;
-            padding: 20px;
-            max-width: 1200px;
-            margin: 0 auto;
-        }
-        h1 {
-            color: #333;
-        }
         .flagged-item {
             background: white;
             padding: 16px;
@@ -27,15 +18,11 @@
             justify-content: space-between;
             align-items: center;
             margin-bottom: 8px;
+            flex-wrap: wrap;
+            gap: 8px;
         }
-        .flagged-user {
-            font-weight: bold;
-            color: #007bff;
-        }
-        .flagged-location {
-            color: #666;
-            font-size: 14px;
-        }
+        .flagged-user { font-weight: bold; color: #007bff; }
+        .flagged-location { color: #666; font-size: 14px; }
         .flagged-message {
             font-size: 16px;
             padding: 12px;
@@ -43,15 +30,8 @@
             border-radius: 4px;
             margin: 10px 0;
         }
-        .flagged-reason {
-            color: #dc3545;
-            font-size: 14px;
-            margin-bottom: 8px;
-        }
-        .flagged-actions {
-            display: flex;
-            gap: 8px;
-        }
+        .flagged-reason { color: #dc3545; font-size: 14px; margin-bottom: 8px; }
+        .flagged-actions { display: flex; gap: 8px; flex-wrap: wrap; }
         .approve-btn {
             padding: 8px 16px;
             background: #28a745;
@@ -68,82 +48,55 @@
             border-radius: 4px;
             cursor: pointer;
         }
-        .approve-btn:hover {
-            background: #218838;
-        }
-        .reject-btn:hover {
-            background: #c82333;
-        }
-        .empty-state {
-            text-align: center;
-            padding: 40px;
-            color: #999;
+        .approve-btn:hover { background: #218838; }
+        .reject-btn:hover { background: #c82333; }
+        .empty-state { text-align: center; padding: 40px; color: #999; }
+        .refresh-btn {
+            padding: 8px 16px;
+            background: #007bff;
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-bottom: 16px;
         }
     </style>
 </head>
-<body>
-    <h1>🚩 Review Queue</h1>
-    <p style="color:#666;">Review flagged messages and user reports</p>
-    <div id="flagged-list"></div>
+<body class="admin-page">
+    <nav class="admin-nav" id="admin-nav"></nav>
+    <div id="admin-login" class="admin-login-wrap"></div>
 
+    <main class="admin-main" id="admin-content" style="display:none">
+        <h1>Review Queue</h1>
+        <p style="color:#666;">Approve or reject flagged messages and user reports.</p>
+        <button type="button" class="refresh-btn" onclick="loadFlagged()">Refresh</button>
+        <div id="flagged-list"></div>
+    </main>
+
+    <script src="/admin/admin-auth.js"></script>
     <script>
-        let token = localStorage.getItem('token');
-        if (!token) {
-            // Show simple login prompt
-            const username = prompt('Admin Username:');
-            const password = prompt('Admin Password:');
-            if (username && password) {
-                loginAdmin(username, password);
-            } else {
-                alert('Login required for admin panel');
-                window.location.href = '/';
-            }
-        }
-
-        async function loginAdmin(username, password) {
-            try {
-                const res = await fetch('/login', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
-                        username, 
-                        password, 
-                        state: 'Admin', 
-                        lga: 'Admin' 
-                    })
-                });
-                if (!res.ok) {
-                    alert('Login failed. Invalid credentials.');
-                    window.location.href = '/';
-                    return;
-                }
-                const data = await res.json();
-                localStorage.setItem('token', data.token);
-                localStorage.setItem('user', JSON.stringify(data.user));
-                token = data.token;
-                loadFlagged();
-            } catch (err) {
-                console.error('Login failed:', err);
-                alert('Login failed. Please try again.');
-                window.location.href = '/';
-            }
-        }
+        AdminAuth.initPage({
+            loginEl: 'admin-login',
+            contentEl: 'admin-content',
+            navEl: 'admin-nav',
+            active: 'review',
+            onReady: loadFlagged
+        });
 
         async function loadFlagged() {
-            if (!token) return;
             try {
-                const res = await fetch('/admin/flagged', {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
+                const res = await AdminAuth.fetchApi('/admin/flagged');
                 if (!res.ok) {
-                    alert('Failed to load flagged messages. Are you an admin?');
+                    alert('Failed to load flagged messages.');
                     return;
                 }
                 const data = await res.json();
-                renderFlagged(data.flagged);
+                const pending = (data.flagged || []).filter(
+                    (item) => !item.status || item.status === 'pending'
+                );
+                renderFlagged(pending);
             } catch (err) {
                 console.error('Failed to load:', err);
-                alert('Failed to load flagged messages');
             }
         }
 
@@ -159,11 +112,11 @@
                         <span class="flagged-user">${item.username}</span>
                         <span class="flagged-location">${item.state} / ${item.lga}</span>
                     </div>
-                    <div class="flagged-reason">${item.rejection_reason}</div>
+                    <div class="flagged-reason">${item.rejection_reason || 'Flagged for review'}</div>
                     <div class="flagged-message">${item.message}</div>
                     <div class="flagged-actions">
-                        <button class="approve-btn" onclick="approve(${item.id})">✓ Approve & Post</button>
-                        <button class="reject-btn" onclick="reject(${item.id})">✗ Reject</button>
+                        <button class="approve-btn" onclick="approve(${item.id})">Approve &amp; Post</button>
+                        <button class="reject-btn" onclick="reject(${item.id})">Reject</button>
                     </div>
                 </div>
             `).join('');
@@ -171,42 +124,34 @@
 
         async function approve(id) {
             try {
-                const res = await fetch(`/admin/approve/${id}`, {
-                    method: 'POST',
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
+                const res = await AdminAuth.fetchApi(`/admin/approve/${id}`, { method: 'POST' });
                 if (res.ok) {
-                    document.querySelector(`[data-id="${id}"]`).remove();
-                    alert('Message approved and posted');
+                    document.querySelector(`[data-id="${id}"]`)?.remove();
+                    if (!document.querySelector('.flagged-item')) {
+                        renderFlagged([]);
+                    }
                 } else {
                     alert('Failed to approve message');
                 }
             } catch (err) {
                 console.error('Approve failed:', err);
-                alert('Failed to approve message');
             }
         }
 
         async function reject(id) {
             try {
-                const res = await fetch(`/admin/reject/${id}`, {
-                    method: 'POST',
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
+                const res = await AdminAuth.fetchApi(`/admin/reject/${id}`, { method: 'POST' });
                 if (res.ok) {
-                    document.querySelector(`[data-id="${id}"]`).remove();
-                    alert('Message rejected');
+                    document.querySelector(`[data-id="${id}"]`)?.remove();
+                    if (!document.querySelector('.flagged-item')) {
+                        renderFlagged([]);
+                    }
                 } else {
                     alert('Failed to reject message');
                 }
             } catch (err) {
                 console.error('Reject failed:', err);
-                alert('Failed to reject message');
             }
-        }
-
-        if (token) {
-            loadFlagged();
         }
     </script>
 </body>

@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Database Viewer - Admin</title>
+    <link rel="stylesheet" href="/admin/admin.css">
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -212,8 +213,11 @@
         }
     </style>
 </head>
-<body>
-    <div class="container">
+<body class="admin-page">
+    <nav class="admin-nav" id="admin-nav"></nav>
+    <div id="admin-login" class="admin-login-wrap"></div>
+
+    <div class="container" id="admin-content" style="display:none">
         <h1>🗄️ Database Viewer</h1>
         <p style="color:#666; margin-bottom:20px;">Admin panel to view all system data</p>
 
@@ -293,47 +297,18 @@
         </div>
     </div>
 
+    <script src="/admin/admin-auth.js"></script>
     <script>
-        let token = localStorage.getItem('token');
-        if (!token) {
-            // Show simple login prompt
-            const username = prompt('Admin Username:');
-            const password = prompt('Admin Password:');
-            if (username && password) {
-                loginAdmin(username, password);
-            } else {
-                alert('Login required to view database');
-                window.location.href = '/';
-            }
-        }
+        AdminAuth.initPage({
+            loginEl: 'admin-login',
+            contentEl: 'admin-content',
+            navEl: 'admin-nav',
+            active: 'db',
+            onReady: loadAllData
+        });
 
-        async function loginAdmin(username, password) {
-            try {
-                const res = await fetch('/login', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
-                        username, 
-                        password, 
-                        state: 'Admin', 
-                        lga: 'Admin' 
-                    })
-                });
-                if (!res.ok) {
-                    alert('Login failed. Invalid credentials.');
-                    window.location.href = '/';
-                    return;
-                }
-                const data = await res.json();
-                localStorage.setItem('token', data.token);
-                localStorage.setItem('user', JSON.stringify(data.user));
-                token = data.token;
-                loadAllData();
-            } catch (err) {
-                console.error('Login failed:', err);
-                alert('Login failed. Please try again.');
-                window.location.href = '/';
-            }
+        function authHeaders() {
+            return AdminAuth.authHeaders();
         }
 
         function switchTab(tabName) {
@@ -355,9 +330,7 @@
 
         async function testFlaggedTable() {
             try {
-                const res = await fetch('/admin/test-flagged', {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
+                const res = await AdminAuth.fetchApi('/admin/test-flagged');
                 if (!res.ok) throw new Error('Failed to test');
                 const data = await res.json();
                 
@@ -397,12 +370,9 @@ Recent Records: ${data.recentRecords.length > 0 ? '\n' + JSON.stringify(data.rec
             }
 
             try {
-                const res = await fetch('/admin/query', {
+                const res = await AdminAuth.fetchApi('/admin/query', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
-                    },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ query })
                 });
 
@@ -535,13 +505,13 @@ Recent Records: ${data.recentRecords.length > 0 ? '\n' + JSON.stringify(data.rec
         }
 
         async function loadStats() {
-            if (!token) return;
+            if (!AdminAuth.isLoggedIn()) return;
             try {
                 const [messages, users, interactions, flagged] = await Promise.all([
-                    fetch('/admin/db/messages', { headers: { 'Authorization': `Bearer ${token}` } }).then(r => r.json()),
-                    fetch('/admin/db/users', { headers: { 'Authorization': `Bearer ${token}` } }).then(r => r.json()),
-                    fetch('/admin/db/interactions', { headers: { 'Authorization': `Bearer ${token}` } }).then(r => r.json()),
-                    fetch('/admin/flagged', { headers: { 'Authorization': `Bearer ${token}` } }).then(r => r.json())
+                    AdminAuth.fetchApi('/admin/db/messages').then(r => r.json()),
+                    AdminAuth.fetchApi('/admin/db/users').then(r => r.json()),
+                    AdminAuth.fetchApi('/admin/db/interactions').then(r => r.json()),
+                    AdminAuth.fetchApi('/admin/flagged').then(r => r.json())
                 ]);
 
                 document.getElementById('stats').innerHTML = `
@@ -569,9 +539,7 @@ Recent Records: ${data.recentRecords.length > 0 ? '\n' + JSON.stringify(data.rec
 
         async function loadMessages() {
             try {
-                const res = await fetch('/admin/db/messages', {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
+                const res = await AdminAuth.fetchApi('/admin/db/messages');
                 if (!res.ok) throw new Error('Failed to fetch');
                 const data = await res.json();
                 
@@ -618,9 +586,7 @@ Recent Records: ${data.recentRecords.length > 0 ? '\n' + JSON.stringify(data.rec
 
         async function loadUsers() {
             try {
-                const res = await fetch('/admin/db/users', {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
+                const res = await AdminAuth.fetchApi('/admin/db/users');
                 if (!res.ok) throw new Error('Failed to fetch');
                 const data = await res.json();
                 
@@ -671,9 +637,7 @@ Recent Records: ${data.recentRecords.length > 0 ? '\n' + JSON.stringify(data.rec
 
         async function loadInteractions() {
             try {
-                const res = await fetch('/admin/db/interactions', {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
+                const res = await AdminAuth.fetchApi('/admin/db/interactions');
                 if (!res.ok) throw new Error('Failed to fetch');
                 const data = await res.json();
                 
@@ -716,9 +680,7 @@ Recent Records: ${data.recentRecords.length > 0 ? '\n' + JSON.stringify(data.rec
 
         async function loadFlagged() {
             try {
-                const res = await fetch('/admin/flagged', {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
+                const res = await AdminAuth.fetchApi('/admin/flagged');
                 if (!res.ok) throw new Error('Failed to fetch');
                 const data = await res.json();
                 
@@ -765,9 +727,7 @@ Recent Records: ${data.recentRecords.length > 0 ? '\n' + JSON.stringify(data.rec
 
         async function loadAnalytics() {
             try {
-                const res = await fetch('/admin/analytics', {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
+                const res = await AdminAuth.fetchApi('/admin/analytics');
                 const data = await res.json();
                 
                 const content = document.getElementById('analytics-content');
@@ -847,12 +807,9 @@ Recent Records: ${data.recentRecords.length > 0 ? '\n' + JSON.stringify(data.rec
             if (!confirm(`Are you sure you want to ban ${username}?`)) return;
             
             try {
-                const res = await fetch('/admin/ban-user', {
+                const res = await AdminAuth.fetchApi('/admin/ban-user', {
                     method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'application/json'
-                    },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ username })
                 });
                 
@@ -872,12 +829,9 @@ Recent Records: ${data.recentRecords.length > 0 ? '\n' + JSON.stringify(data.rec
             if (!confirm(`Are you sure you want to unban ${username}?`)) return;
             
             try {
-                const res = await fetch('/admin/unban-user', {
+                const res = await AdminAuth.fetchApi('/admin/unban-user', {
                     method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'application/json'
-                    },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ username })
                 });
                 
@@ -897,9 +851,8 @@ Recent Records: ${data.recentRecords.length > 0 ? '\n' + JSON.stringify(data.rec
             if (!confirm(`Are you sure you want to DELETE ${username} and ALL their data? This cannot be undone!`)) return;
             
             try {
-                const res = await fetch(`/admin/delete-user/${username}`, {
-                    method: 'DELETE',
-                    headers: { 'Authorization': `Bearer ${token}` }
+                const res = await AdminAuth.fetchApi(`/admin/delete-user/${encodeURIComponent(username)}`, {
+                    method: 'DELETE'
                 });
                 
                 if (res.ok) {
@@ -915,9 +868,6 @@ Recent Records: ${data.recentRecords.length > 0 ? '\n' + JSON.stringify(data.rec
             }
         }
 
-        if (token) {
-            loadAllData();
-        }
     </script>
 </body>
 </html>

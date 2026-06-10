@@ -215,6 +215,13 @@ function isAdmin(req) {
   return req.user && req.user.role === 'admin';
 }
 
+function requireAdmin(req, res, next) {
+  if (!isAdmin(req)) {
+    return res.status(403).json({ message: 'Admin access required' });
+  }
+  next();
+}
+
 // Rate limiters
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
@@ -258,6 +265,10 @@ app.get('/', (req, res) => {
 });
 
 app.get('/admin', (req, res) => {
+  res.sendFile(path.join(PUBLIC_DIR, 'admin', 'hub.html'));
+});
+
+app.get('/admin/review', (req, res) => {
   res.sendFile(path.join(PUBLIC_DIR, 'admin', 'index.html'));
 });
 
@@ -971,7 +982,7 @@ app.get('/admin/flagged', verifyHttpToken, async (req, res) => {
 });
 
 // Admin: Approve flagged message
-app.post('/admin/approve/:id', verifyHttpToken, async (req, res) => {
+app.post('/admin/approve/:id', verifyHttpToken, requireAdmin, async (req, res) => {
   try {
     const id = Number(req.params.id);
     const flagged = await dbAll('SELECT * FROM flagged_messages WHERE id = ?', [id]);
@@ -1005,7 +1016,7 @@ app.post('/admin/approve/:id', verifyHttpToken, async (req, res) => {
 });
 
 // Admin: Reject flagged message
-app.post('/admin/reject/:id', verifyHttpToken, async (req, res) => {
+app.post('/admin/reject/:id', verifyHttpToken, requireAdmin, async (req, res) => {
   try {
     const id = Number(req.params.id);
     await dbRun(
@@ -1053,7 +1064,7 @@ app.get('/admin/test-flagged', verifyHttpToken, async (req, res) => {
 });
 
 // Admin: View all database tables
-app.get('/admin/db/messages', verifyHttpToken, async (req, res) => {
+app.get('/admin/db/messages', verifyHttpToken, requireAdmin, async (req, res) => {
   try {
     const data = await dbAll('SELECT * FROM messages ORDER BY created_at DESC LIMIT 500');
     res.json({ data });
@@ -1063,7 +1074,7 @@ app.get('/admin/db/messages', verifyHttpToken, async (req, res) => {
   }
 });
 
-app.get('/admin/db/users', verifyHttpToken, async (req, res) => {
+app.get('/admin/db/users', verifyHttpToken, requireAdmin, async (req, res) => {
   try {
     const data = await dbAll('SELECT username, state, lga, created_at FROM users ORDER BY created_at DESC');
     res.json({ data });
@@ -1073,7 +1084,7 @@ app.get('/admin/db/users', verifyHttpToken, async (req, res) => {
   }
 });
 
-app.get('/admin/db/interactions', verifyHttpToken, async (req, res) => {
+app.get('/admin/db/interactions', verifyHttpToken, requireAdmin, async (req, res) => {
   try {
     const data = await dbAll('SELECT * FROM interactions ORDER BY created_at DESC LIMIT 500');
     res.json({ data });
@@ -1083,7 +1094,7 @@ app.get('/admin/db/interactions', verifyHttpToken, async (req, res) => {
   }
 });
 
-app.get('/admin/db/flagged', verifyHttpToken, async (req, res) => {
+app.get('/admin/db/flagged', verifyHttpToken, requireAdmin, async (req, res) => {
   try {
     const data = await dbAll('SELECT * FROM flagged_messages ORDER BY created_at DESC LIMIT 500');
     res.json({ data });
@@ -1094,7 +1105,7 @@ app.get('/admin/db/flagged', verifyHttpToken, async (req, res) => {
 });
 
 // Admin: Remove duplicate interactions
-app.post('/admin/remove-duplicate-interactions', verifyHttpToken, async (req, res) => {
+app.post('/admin/remove-duplicate-interactions', verifyHttpToken, requireAdmin, async (req, res) => {
   try {
     // First, get all duplicates
     const duplicates = await dbAll(`
@@ -1135,7 +1146,7 @@ app.post('/admin/remove-duplicate-interactions', verifyHttpToken, async (req, re
 });
 
 // Admin: Remove duplicate messages
-app.post('/admin/remove-duplicate-messages', verifyHttpToken, async (req, res) => {
+app.post('/admin/remove-duplicate-messages', verifyHttpToken, requireAdmin, async (req, res) => {
   try {
     // Find duplicate messages (same username, message text, state, lga)
     const duplicates = await dbAll(`
@@ -1174,7 +1185,7 @@ app.post('/admin/remove-duplicate-messages', verifyHttpToken, async (req, res) =
 });
 
 // Admin: Auto-track all existing user messages as 'sent' interactions
-app.post('/admin/auto-track-sent-messages', verifyHttpToken, async (req, res) => {
+app.post('/admin/auto-track-sent-messages', verifyHttpToken, requireAdmin, async (req, res) => {
   try {
     // Get all main messages (not replies) from all users
     const messages = await dbAll(`
@@ -1218,7 +1229,7 @@ app.post('/admin/auto-track-sent-messages', verifyHttpToken, async (req, res) =>
 });
 
 // Temporary: Trim all location data in database
-app.post('/admin/normalize-locations', async (req, res) => {
+app.post('/admin/normalize-locations', verifyHttpToken, requireAdmin, async (req, res) => {
   try {
     // Trim all state/lga in messages table
     const messages = await dbAll('SELECT id, state, lga FROM messages');
@@ -1260,7 +1271,7 @@ app.post('/admin/normalize-locations', async (req, res) => {
 });
 
 // Admin: Run custom SQL query (read-only)
-app.post('/admin/query', verifyHttpToken, async (req, res) => {
+app.post('/admin/query', verifyHttpToken, requireAdmin, async (req, res) => {
   try {
     const { query } = req.body;
     if (!query || typeof query !== 'string') {
@@ -1289,7 +1300,7 @@ app.post('/admin/query', verifyHttpToken, async (req, res) => {
 });
 
 // Quick check endpoint for specific user messages
-app.get('/admin/check-user/:username', verifyHttpToken, async (req, res) => {
+app.get('/admin/check-user/:username', verifyHttpToken, requireAdmin, async (req, res) => {
   try {
     const messages = await dbAll(
       `SELECT id, username, state, lga, message, created_at 
@@ -1307,7 +1318,7 @@ app.get('/admin/check-user/:username', verifyHttpToken, async (req, res) => {
 });
 
 // Admin: Ban user
-app.post('/admin/ban-user', verifyHttpToken, async (req, res) => {
+app.post('/admin/ban-user', verifyHttpToken, requireAdmin, async (req, res) => {
   try {
     const { username } = req.body;
     if (!username) {
@@ -1330,7 +1341,7 @@ app.post('/admin/ban-user', verifyHttpToken, async (req, res) => {
 });
 
 // Admin: Unban user
-app.post('/admin/unban-user', verifyHttpToken, async (req, res) => {
+app.post('/admin/unban-user', verifyHttpToken, requireAdmin, async (req, res) => {
   try {
     const { username } = req.body;
     if (!username) {
@@ -1346,7 +1357,7 @@ app.post('/admin/unban-user', verifyHttpToken, async (req, res) => {
 });
 
 // Admin: Delete user and all their data
-app.delete('/admin/delete-user/:username', verifyHttpToken, async (req, res) => {
+app.delete('/admin/delete-user/:username', verifyHttpToken, requireAdmin, async (req, res) => {
   try {
     const { username } = req.params;
 
@@ -1367,7 +1378,7 @@ app.delete('/admin/delete-user/:username', verifyHttpToken, async (req, res) => 
 });
 
 // Admin: Bulk delete messages
-app.post('/admin/bulk-delete-messages', verifyHttpToken, async (req, res) => {
+app.post('/admin/bulk-delete-messages', verifyHttpToken, requireAdmin, async (req, res) => {
   try {
     const { messageIds } = req.body;
     if (!Array.isArray(messageIds) || messageIds.length === 0) {
@@ -1385,7 +1396,7 @@ app.post('/admin/bulk-delete-messages', verifyHttpToken, async (req, res) => {
 });
 
 // Admin: Get analytics
-app.get('/admin/analytics', verifyHttpToken, async (req, res) => {
+app.get('/admin/analytics', verifyHttpToken, requireAdmin, async (req, res) => {
   try {
     const [users, messages, interactions] = await Promise.all([
       dbAll('SELECT COUNT(*) as count FROM users'),
