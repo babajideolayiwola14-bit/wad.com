@@ -12,6 +12,15 @@ window.initAuthenticatedChat = function () {
 function startAuthenticatedChat() {
     const token = Session.getToken();
     if (!token) return;
+
+    function esc(text) {
+        return window.Security ? Security.escapeHtml(text) : String(text ?? '');
+    }
+
+    function getAttachmentMarkup(url, type) {
+        return FeedView.getAttachmentMarkup(url, type);
+    }
+
     if (typeof io === 'undefined') {
         const box = document.getElementById('chat-messages');
         if (box) {
@@ -311,7 +320,7 @@ function startAuthenticatedChat() {
                 const totalInteractions = Object.values(stateGroup.lgas).reduce((sum, lga) => sum + lga.interactions.length, 0);
                 stateHeader.style.cssText = 'padding:10px; background:#fff; color:#000; cursor:pointer; font-weight:bold; border-radius:4px; margin-bottom:5px; display:flex; justify-content:space-between; align-items:center;';
                 stateHeader.innerHTML = `
-                    <span><span class="state-toggle-icon">▶</span> ${stateGroup.state}</span>
+                    <span><span class="state-toggle-icon">▶</span> ${esc(stateGroup.state)}</span>
                     <span style="font-size:12px; opacity:0.9;">${totalInteractions} interaction${totalInteractions !== 1 ? 's' : ''}</span>
                 `;
                 
@@ -330,7 +339,7 @@ function startAuthenticatedChat() {
                     lgaHeader.className = 'lga-group-header';
                     lgaHeader.style.cssText = 'padding:8px; background:#f0f0f0; cursor:pointer; font-weight:600; border-radius:4px; margin:5px 0; display:flex; justify-content:space-between; align-items:center;';
                     lgaHeader.innerHTML = `
-                        <span><span class="lga-toggle-icon">▶</span> ${lgaGroup.lga}</span>
+                        <span><span class="lga-toggle-icon">▶</span> ${esc(lgaGroup.lga)}</span>
                         <span style="font-size:11px; color:#666;">${lgaGroup.interactions.length} interaction${lgaGroup.interactions.length !== 1 ? 's' : ''}</span>
                     `;
                     
@@ -349,8 +358,8 @@ function startAuthenticatedChat() {
                         div.dataset.lga = item.lga;
                         div.style.cssText = 'padding:8px; margin:5px 0; background:#fff; border-left:3px solid #007bff; cursor:pointer;';
                         div.innerHTML = `
-                            <div class="profile-interaction-meta" style="font-size:11px; color:#666;">${item.type} • ${new Date(item.created_at).toLocaleString()}</div>
-                            <div class="profile-interaction-text" style="font-size:13px; margin-top:4px;">${item.message.substring(0, 80)}${item.message.length > 80 ? '...' : ''}</div>
+                            <div class="profile-interaction-meta" style="font-size:11px; color:#666;">${esc(item.type)} • ${new Date(item.created_at).toLocaleString()}</div>
+                            <div class="profile-interaction-text" style="font-size:13px; margin-top:4px;">${esc(item.message.substring(0, 80))}${item.message.length > 80 ? '...' : ''}</div>
                         `;
                         lgaInteractionsContainer.appendChild(div);
                     });
@@ -370,8 +379,8 @@ function startAuthenticatedChat() {
                                 div.dataset.lga = item.lga;
                                 div.style.cssText = 'padding:8px; margin:5px 0; background:#fff; border-left:3px solid #000; cursor:pointer;';
                                 div.innerHTML = `
-                                    <div class="profile-interaction-meta" style="font-size:11px; color:#666;">${item.type} • ${new Date(item.created_at).toLocaleString()}</div>
-                                    <div class="profile-interaction-text" style="font-size:13px; margin-top:4px;">${item.message.substring(0, 80)}${item.message.length > 80 ? '...' : ''}</div>
+                                    <div class="profile-interaction-meta" style="font-size:11px; color:#666;">${esc(item.type)} • ${new Date(item.created_at).toLocaleString()}</div>
+                                    <div class="profile-interaction-text" style="font-size:13px; margin-top:4px;">${esc(item.message.substring(0, 80))}${item.message.length > 80 ? '...' : ''}</div>
                                 `;
                                 lgaInteractionsContainer.insertBefore(div, showMoreBtn);
                             });
@@ -485,129 +494,9 @@ function startAuthenticatedChat() {
         return res.json();
     }
 
-    function getAttachmentMarkup(url, type) {
-        if (!url) return '';
-        if (type && type.startsWith('image')) {
-            return `<div class="attachment"><img src="${url}" alt="attachment" style="max-width:200px; border-radius:6px; margin-top:6px;"></div>`;
-        }
-        if (type && type.startsWith('video')) {
-            return `<div class="attachment"><video controls style="max-width:220px; border-radius:6px; margin-top:6px;"><source src="${url}" type="${type}">Your browser does not support the video tag.</video></div>`;
-        }
-        return `<div class="attachment" style="margin-top:6px;"><a href="${url}" target="_blank" rel="noopener" style="color:#000;">📎 View attachment</a></div>`;
-    }
-
     function renderFeed(messages) {
-        console.log('renderFeed called with', messages.length, 'messages');
-        console.log('messagesDiv:', messagesDiv);
-        // Store messages in sessionStorage for filtering
-        sessionStorage.setItem('feedMessages', JSON.stringify(messages));
-        
-        if (!messagesDiv) {
-            console.error('messagesDiv is null!');
-            return;
-        }
-        messagesDiv.innerHTML = '';
-        console.log('Cleared messagesDiv');
-        
-        // First render all top-level messages
-        const topLevelMessages = messages.filter(FeedView.isTopLevelMessage);
-        console.log('Top-level messages:', topLevelMessages.length);
-        console.log('Top-level message details:', topLevelMessages);
-        topLevelMessages.forEach(msg => {
-            console.log('Rendering message:', msg.id, msg.username, msg.message);
-            const messageElement = document.createElement('div');
-            messageElement.classList.add('message-item');
-            messageElement.dataset.id = normalizeId(msg.id);
-            const own = msg.username === currentUsername;
-            const actionsHtml = `<button class="reply-btn" data-username="${msg.username}" title="Reply">\uD83D\uDCAC</button> <button class="share-btn" data-message="${msg.message}" data-id="${msg.id}" title="Share">\u2197</button>${own ? ` <button class="delete-btn" data-id="${msg.id}" title="Delete">🗑️</button>` : ''}`;
-            messageElement.innerHTML = `
-                <div style="display: flex; align-items: center; width: 100%; gap: 8px;">
-                    <div class="message-text"><strong>${msg.username}:</strong> ${msg.message} <small>(${new Date(msg.created_at).toLocaleTimeString()})</small> <span class="reply-count" style="display:none"></span></div>
-                    <div class="message-actions">${actionsHtml}</div>
-                </div>
-                ${getAttachmentMarkup(msg.attachment_url, msg.attachment_type)}
-                <div class="replies" style="display:none"></div>
-            `;
-            messagesDiv.appendChild(messageElement);
-            console.log('Appended message to messagesDiv');
-        });
-        console.log('messagesDiv.children.length:', messagesDiv.children.length);
-        console.log('messagesDiv computed style:', window.getComputedStyle(messagesDiv));
-        console.log('messagesDiv height:', messagesDiv.offsetHeight);
-        console.log('messagesDiv scrollHeight:', messagesDiv.scrollHeight);
-        console.log('First message element:', messagesDiv.children[0]);
-        if (messagesDiv.children[0]) {
-            console.log('First message offsetHeight:', messagesDiv.children[0].offsetHeight);
-            console.log('First message display:', window.getComputedStyle(messagesDiv.children[0]).display);
-        }
-        
-        // Optimized nested reply rendering with O(n) complexity
-        // Group replies by parent_id for efficient lookup
-        const replyMap = {};
-        messages.filter(m => !FeedView.isTopLevelMessage(m)).forEach(msg => {
-            const pid = normalizeId(msg.parent_id);
-            if (pid == null) return;
-            if (!replyMap[pid]) replyMap[pid] = [];
-            replyMap[pid].push(msg);
-        });
-        
-        // Recursive function to render replies
-        function renderRepliesRecursive(parentId, parentElement) {
-            const pid = normalizeId(parentId);
-            const replies = replyMap[pid];
-            if (!replies || replies.length === 0) return;
-            
-            const repliesDiv = parentElement.querySelector(':scope > .replies');
-            if (!repliesDiv) return;
-            
-            replies.forEach(msg => {
-                const replyItem = document.createElement('div');
-                replyItem.classList.add('reply-message');
-                replyItem.dataset.id = normalizeId(msg.id);
-                const cleanMessage = msg.message.replace(/^@\w+\s*/, '');
-                const own = msg.username === currentUsername;
-                const actionsHtml = `<button class="reply-btn" data-username="${msg.username}" title="Reply">\uD83D\uDCAC</button> <button class="share-btn" data-message="${cleanMessage}" data-id="${msg.id}" title="Share">\u2197</button>${own ? ` <button class="delete-btn" data-id="${msg.id}" title="Delete">🗑️</button>` : ''}`;
-                replyItem.innerHTML = `
-                    <div style="display: flex; align-items: center; width: 100%; gap: 8px;">
-                        <div class="message-text"><strong>${msg.username}:</strong> ${cleanMessage} <small>(${new Date(msg.created_at).toLocaleTimeString()})</small> <span class="reply-count" style="display:none"></span></div>
-                        <div class="message-actions">${actionsHtml}</div>
-                    </div>
-                    ${getAttachmentMarkup(msg.attachment_url, msg.attachment_type)}
-                    <div class="replies" style="display:none"></div>
-                `;
-                repliesDiv.appendChild(replyItem);
-                
-                // Recursively render nested replies
-                renderRepliesRecursive(normalizeId(msg.id), replyItem);
-                
-                // Update reply count for this message
-                const nestedReplies = replyItem.querySelector(':scope > .replies');
-                if (nestedReplies && nestedReplies.children.length > 0) {
-                    const replyCount = replyItem.querySelector('.reply-count');
-                    if (replyCount) {
-                        replyCount.innerHTML = `<span style="font-size:16px;margin-right:4px;">\uD83D\uDCAC</span>${nestedReplies.children.length}`;
-                        replyCount.style.display = 'inline';
-                    }
-                }
-            });
-        }
-        
-        // Render replies for all top-level messages
-        document.querySelectorAll('.message-item').forEach(item => {
-            const messageId = normalizeId(item.dataset.id);
-            renderRepliesRecursive(messageId, item);
-            
-            // Update reply count for top-level messages
-            const repliesDiv = item.querySelector(':scope > .replies');
-            if (repliesDiv && repliesDiv.children.length > 0) {
-                const replyCount = item.querySelector('.reply-count');
-                if (replyCount) {
-                    replyCount.innerHTML = `<span style="font-size:16px;margin-right:4px;">\uD83D\uDCAC</span>${repliesDiv.children.length}`;
-                    replyCount.style.display = 'inline';
-                }
-            }
-        });
-        
+        if (!messagesDiv) return;
+        FeedView.render(messages, { container: messagesDiv, currentUsername, readOnly: false });
         messagesDiv.scrollTop = messagesDiv.scrollHeight;
     }
 
@@ -732,10 +621,10 @@ function startAuthenticatedChat() {
         messageElement.classList.add('message-item');
         messageElement.dataset.id = msgId;
         const own = data.username === currentUsername;
-        const actionsHtml = `<button class="reply-btn" data-username="${data.username}" title="Reply">\uD83D\uDCAC</button> <button class="share-btn" data-message="${data.message}" data-id="${data.id}" title="Share">\u2197</button>${own ? ` <button class="delete-btn" data-id="${data.id}" title="Delete">🗑️</button>` : ''}`;
+        const actionsHtml = `<button class="reply-btn" data-username="${esc(data.username)}" title="Reply">\uD83D\uDCAC</button> <button class="share-btn" data-message="${esc(data.message)}" data-id="${esc(String(data.id))}" title="Share">\u2197</button>${own ? ` <button class="delete-btn" data-id="${esc(String(data.id))}" title="Delete">🗑️</button>` : ''}`;
         messageElement.innerHTML = `
             <div style="display: flex; align-items: center; width: 100%; gap: 8px;">
-                <div class="message-text"><strong>${data.username}:</strong> ${data.message} <small>(${new Date(data.timestamp).toLocaleTimeString()})</small> <span class="reply-count" style="display:none"></span></div>
+                <div class="message-text"><strong>${esc(data.username)}:</strong> ${esc(data.message)} <small>(${new Date(data.timestamp).toLocaleTimeString()})</small> <span class="reply-count" style="display:none"></span></div>
                 <div class="message-actions">${actionsHtml}</div>
             </div>
             ${getAttachmentMarkup(data.attachmentUrl, data.attachmentType)}
@@ -755,10 +644,10 @@ function startAuthenticatedChat() {
                     replyItem.dataset.id = msgId;
                     const cleanMessage = data.message.replace(/^@\w+\s*/, '');
                     const ownReply = data.username === currentUsername;
-                    const replyActions = `<button class="reply-btn" data-username="${data.username}" title="Reply">\uD83D\uDCAC</button> <button class="share-btn" data-message="${cleanMessage}" data-id="${data.id}" title="Share">\u2197</button>${ownReply ? ` <button class="delete-btn" data-id="${data.id}" title="Delete">🗑️</button>` : ''}`;
+                    const replyActions = `<button class="reply-btn" data-username="${esc(data.username)}" title="Reply">\uD83D\uDCAC</button> <button class="share-btn" data-message="${esc(cleanMessage)}" data-id="${esc(String(data.id))}" title="Share">\u2197</button>${ownReply ? ` <button class="delete-btn" data-id="${esc(String(data.id))}" title="Delete">🗑️</button>` : ''}`;
                     replyItem.innerHTML = `
                         <div style="display: flex; align-items: center; width: 100%; gap: 8px;">
-                            <div class="message-text"><strong>${data.username}:</strong> ${cleanMessage} <small>(${new Date(data.timestamp).toLocaleTimeString()})</small> <span class="reply-count" style="display:none"></span></div>
+                            <div class="message-text"><strong>${esc(data.username)}:</strong> ${esc(cleanMessage)} <small>(${new Date(data.timestamp).toLocaleTimeString()})</small> <span class="reply-count" style="display:none"></span></div>
                             <div class="message-actions">${replyActions}</div>
                         </div>
                         ${getAttachmentMarkup(data.attachmentUrl, data.attachmentType)}

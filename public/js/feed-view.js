@@ -3,6 +3,14 @@
  * @see docs/GUEST_MODE.md
  */
 window.FeedView = (function () {
+    function esc(text) {
+        return window.Security ? Security.escapeHtml(text) : String(text ?? '');
+    }
+
+    function safeUrl(url) {
+        return window.Security ? Security.safeUploadUrl(url) : '';
+    }
+
     function normalizeMessageId(id) {
         if (id == null || id === '') return null;
         const n = Number(id);
@@ -14,22 +22,27 @@ window.FeedView = (function () {
     }
 
     function getAttachmentMarkup(url, type) {
-        if (!url) return '';
+        const safe = safeUrl(url);
+        if (!safe) return '';
         if (type && type.startsWith('image')) {
-            return `<div class="attachment"><img src="${url}" alt="attachment" style="max-width:200px;border-radius:6px;margin-top:6px;"></div>`;
+            return `<div class="attachment"><img src="${safe}" alt="attachment" style="max-width:200px;border-radius:6px;margin-top:6px;"></div>`;
         }
         if (type && type.startsWith('video')) {
-            return `<div class="attachment"><video controls style="max-width:220px;border-radius:6px;margin-top:6px;"><source src="${url}" type="${type}">Your browser does not support the video tag.</video></div>`;
+            const safeType = esc(type);
+            return `<div class="attachment"><video controls style="max-width:220px;border-radius:6px;margin-top:6px;"><source src="${safe}" type="${safeType}">Your browser does not support the video tag.</video></div>`;
         }
-        return `<div class="attachment" style="margin-top:6px;"><a href="${url}" target="_blank" rel="noopener" style="color:#000;">📎 View attachment</a></div>`;
+        return `<div class="attachment" style="margin-top:6px;"><a href="${safe}" target="_blank" rel="noopener" style="color:#000;">📎 View attachment</a></div>`;
     }
 
     function buildActionsHtml(msg, currentUsername, readOnly) {
+        const username = esc(msg.username);
+        const messageText = esc(msg.message);
+        const id = esc(String(msg.id));
         if (readOnly) {
-            return `<button class="reply-btn guest-action" data-username="${msg.username}" title="Log in to reply">💬</button>`;
+            return `<button class="reply-btn guest-action" data-username="${username}" title="Log in to reply">💬</button>`;
         }
         const own = msg.username === currentUsername;
-        return `<button class="reply-btn" data-username="${msg.username}" title="Reply">💬</button> <button class="share-btn" data-message="${msg.message}" data-id="${msg.id}" title="Share">↗</button>${own ? ` <button class="delete-btn" data-id="${msg.id}" title="Delete">🗑️</button>` : ''}`;
+        return `<button class="reply-btn" data-username="${username}" title="Reply">💬</button> <button class="share-btn" data-message="${messageText}" data-id="${id}" title="Share">↗</button>${own ? ` <button class="delete-btn" data-id="${id}" title="Delete">🗑️</button>` : ''}`;
     }
 
     function render(messages, options) {
@@ -57,7 +70,7 @@ window.FeedView = (function () {
             const actionsHtml = buildActionsHtml(msg, currentUsername, readOnly);
             messageElement.innerHTML = `
                 <div style="display:flex;align-items:center;width:100%;gap:8px;">
-                    <div class="message-text"><strong>${msg.username}:</strong> ${msg.message} <small>(${new Date(msg.created_at).toLocaleTimeString()})</small> <span class="reply-count" style="display:none"></span></div>
+                    <div class="message-text"><strong>${esc(msg.username)}:</strong> ${esc(msg.message)} <small>(${new Date(msg.created_at).toLocaleTimeString()})</small> <span class="reply-count" style="display:none"></span></div>
                     <div class="message-actions">${actionsHtml}</div>
                 </div>
                 ${getAttachmentMarkup(msg.attachment_url, msg.attachment_type)}
@@ -90,7 +103,7 @@ window.FeedView = (function () {
                 const actionsHtml = buildActionsHtml({ ...msg, message: cleanMessage }, currentUsername, readOnly);
                 replyItem.innerHTML = `
                     <div style="display:flex;align-items:center;width:100%;gap:8px;">
-                        <div class="message-text"><strong>${msg.username}:</strong> ${cleanMessage} <small>(${new Date(msg.created_at).toLocaleTimeString()})</small></div>
+                        <div class="message-text"><strong>${esc(msg.username)}:</strong> ${esc(cleanMessage)} <small>(${new Date(msg.created_at).toLocaleTimeString()})</small></div>
                         <div class="message-actions">${actionsHtml}</div>
                     </div>
                     ${getAttachmentMarkup(msg.attachment_url, msg.attachment_type)}
@@ -126,5 +139,5 @@ window.FeedView = (function () {
         });
     }
 
-    return { render, getAttachmentMarkup, normalizeMessageId, isTopLevelMessage };
+    return { render, getAttachmentMarkup, normalizeMessageId, isTopLevelMessage, esc };
 })();

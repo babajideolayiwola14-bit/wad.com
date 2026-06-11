@@ -35,15 +35,30 @@ process.on('unhandledRejection', (err) => {
 
 const app = express();
 const server = http.createServer(app);
-const io = socketIo(server, {
-  cors: {
-    origin: process.env.CORS_ORIGIN || "http://localhost:3001",
-    methods: ["GET", "POST"]
-  }
-});
 const PORT = process.env.PORT || 3001;
 const SECRET_KEY = process.env.SECRET_KEY || 'your-secret-key-change-this-in-production';
 const NODE_ENV = process.env.NODE_ENV || 'development';
+const MAX_FILE_SIZE = Number(process.env.MAX_FILE_SIZE) || 10 * 1024 * 1024;
+const ALLOWED_UPLOAD_TYPES = (process.env.ALLOWED_UPLOAD_TYPES ||
+  'image/jpeg,image/png,image/webp,application/pdf,video/mp4')
+  .split(',')
+  .map((t) => t.trim())
+  .filter(Boolean);
+const CORS_ORIGINS = (process.env.CORS_ORIGIN || 'http://localhost:3001')
+  .split(',')
+  .map((o) => o.trim())
+  .filter(Boolean);
+
+function allowDevResetToken() {
+  return NODE_ENV !== 'production' && process.env.DEV_SHOW_RESET_TOKEN === 'true';
+}
+
+const io = socketIo(server, {
+  cors: {
+    origin: CORS_ORIGINS,
+    methods: ['GET', 'POST']
+  }
+});
 
 // Validate critical environment variables in production
 if (NODE_ENV === 'production') {
@@ -235,12 +250,30 @@ const generalLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
   max: 30, // 30 requests per window
   standardHeaders: true,
+  legacyHeaders: false,
+  skip: (req) => req.method === 'GET' || req.method === 'HEAD'
+});
+
+const resetLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  message: { message: 'Too many reset requests, please try again later' },
+  standardHeaders: true,
   legacyHeaders: false
 });
 
 // Middleware
 app.use(helmet());
-app.use(cors());
+app.use(cors({
+  origin(origin, callback) {
+    if (!origin || CORS_ORIGINS.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true
+}));
 app.use((req, res, next) => {
   res.setHeader(
     "Content-Security-Policy",
@@ -257,7 +290,10 @@ app.use((req, res, next) => {
 // Trust reverse proxy (Render, etc.) for correct client IP
 app.set('trust proxy', 1);
 
-app.use(bodyParser.json());
+app.use(bodyParser.json({ limit: '100kb' }));
+app.use(mongoSanitize());
+app.use(xss());
+app.use(generalLimiter);
 
 app.get('/', (req, res) => {
   res.sendFile(path.join(PUBLIC_DIR, 'index.html'));
@@ -293,7 +329,19 @@ const storage = multer.diskStorage({
     cb(null, `${timestamp}_${safeName}`);
   }
 });
-const upload = multer({ storage });
+const upload = multer({
+  storage,
+  limits: { fileSize: MAX_FILE_SIZE, files: 1 },
+  fileFilter(req, file, cb) {
+    if (ALLOWED_UPLOAD_TYPES.includes(file.mimetype)) {
+      cb(null, true);
+      return;
+    }
+    const err = new Error('File type not allowed');
+    err.code = 'INVALID_FILE_TYPE';
+    cb(err);
+  }
+});
 
 // In-memory user store (legacy — users are persisted in PostgreSQL)
 const users = [];
@@ -408,9 +456,6 @@ app.post('/update-email', verifyHttpToken, async (req, res) => {
 
 // Login endpoint — existing users only (register separately)
 app.post('/login', authLimiter, async (req, res) => {
-  console.log('=== LOGIN REQUEST RECEIVED ===');
-  console.log('Request body:', JSON.stringify(req.body));
-  
   const { username, password, state, lga } = req.body;
 
   // Validate inputs
@@ -423,6 +468,7 @@ app.post('/login', authLimiter, async (req, res) => {
   }
 
   const trimmedUsername = String(username).trim();
+  console.log('Login attempt for username:', trimmedUsername);
 
   // Normalize location input to reduce casing/spacing mismatches
   let normalizedState = state ? String(state).trim() : null;
@@ -521,7 +567,7 @@ app.post('/login', authLimiter, async (req, res) => {
 });
 
 // Request password reset (requires username) - sends email if configured
-app.post('/auth/request-reset', async (req, res) => {
+app.post('/auth/request-reset', resetLimiter, async (req, res) => {
   // allow supplying an email for users who don't have one yet
   const { username, email: suppliedEmail } = req.body || {};
   if (!username) return res.status(400).json({ message: 'Username required' });
@@ -589,7 +635,7 @@ app.post('/auth/request-reset', async (req, res) => {
     }
 
     // If SMTP not configured, optionally show token in dev mode
-    if (process.env.DEV_SHOW_RESET_TOKEN === 'true') {
+    if (allowDevResetToken()) {
       return res.json({ message: 'DEV token', token });
     }
 
@@ -1453,7 +1499,20 @@ app.get('/admin/analytics', verifyHttpToken, requireAdmin, async (req, res) => {
 });
 
 // Upload attachment (documents/images/videos)
-app.post('/upload', verifyHttpToken, upload.single('file'), async (req, res) => {
+app.post('/upload', verifyHttpToken, (req, res, next) => {
+  upload.single('file')(req, res, (err) => {
+    if (!err) return next();
+    if (err.code === 'LIMIT_FILE_SIZE') {
+      const maxMb = Math.round(MAX_FILE_SIZE / 1024 / 1024);
+      return res.status(400).json({ message: `File too large. Maximum size is ${maxMb}MB.` });
+    }
+    if (err.code === 'INVALID_FILE_TYPE') {
+      return res.status(400).json({ message: 'File type not allowed. Use JPEG, PNG, WebP, PDF, or MP4.' });
+    }
+    console.error('Upload rejected:', err.message);
+    return res.status(400).json({ message: 'Upload failed' });
+  });
+}, async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ message: 'No file uploaded' });
