@@ -8,6 +8,7 @@ window.Mybits = (function () {
 
     let interactedLocations = new Set();
     let unseenCount = 0;
+    let mediaQueryBound = false;
 
     function $(id) {
         return document.getElementById(id);
@@ -136,8 +137,8 @@ window.Mybits = (function () {
             interactions.addEventListener('click', onInteractionsClick);
         }
 
-        if (!MOBILE_MQ.dataset.bound) {
-            MOBILE_MQ.dataset.bound = '1';
+        if (!mediaQueryBound) {
+            mediaQueryBound = true;
             MOBILE_MQ.addEventListener('change', updateBadges);
         }
     }
