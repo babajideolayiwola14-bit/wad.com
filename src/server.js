@@ -291,7 +291,12 @@ app.use((req, res, next) => {
 app.set('trust proxy', 1);
 
 app.use(bodyParser.json({ limit: '100kb' }));
-app.use(mongoSanitize());
+app.use((req, res, next) => {
+  if (req.body) mongoSanitize(req.body);
+  if (req.query) mongoSanitize(req.query);
+  if (req.params) mongoSanitize(req.params);
+  next();
+});
 app.use(xss());
 app.use(generalLimiter);
 
