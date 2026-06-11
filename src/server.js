@@ -638,13 +638,13 @@ app.post('/auth/reset', async (req, res) => {
       [hashed, rec.username]
     );
 
-    const token = jwt.sign(
+    const authToken = jwt.sign(
       { username: rec.username, role: 'user', state: null, lga: null },
       SECRET_KEY,
       { expiresIn: process.env.JWT_EXPIRY || '30d' }
     );
 
-    res.json({ ok: true, token, username: rec.username, message: 'Password updated. You are now signed in.' });
+    res.json({ ok: true, token: authToken, username: rec.username, message: 'Password updated. You are now signed in.' });
   } catch (err) {
     console.error('Reset failed:', err);
     res.status(500).json({ message: 'Failed to reset password' });
