@@ -1011,6 +1011,8 @@ app.post('/admin/approve/:id', verifyHttpToken, requireAdmin, async (req, res) =
       attachmentUrl: null,
       attachmentType: null,
       parentId: null,
+      state: msg.state,
+      lga: msg.lga,
       timestamp: new Date().toISOString()
     });
     res.json({ ok: true });
@@ -1656,6 +1658,8 @@ io.on('connection', (socket) => {
         attachmentUrl,
         attachmentType,
         parentId,
+        state,
+        lga,
         timestamp: now.toISOString()
       });
     } catch (err) {

@@ -246,6 +246,7 @@ function startAuthenticatedChat() {
             if (!data.interactions || data.interactions.length === 0) {
                 profileInteractions.textContent = 'No interactions yet.';
                 userInteractedMessageIds.clear();
+                if (window.Mybits) Mybits.setInteractedLocations([]);
                 return;
             }
             
@@ -255,6 +256,7 @@ function startAuthenticatedChat() {
             if (mainMessageInteractions.length === 0) {
                 profileInteractions.textContent = 'No interactions yet.';
                 userInteractedMessageIds.clear();
+                if (window.Mybits) Mybits.setInteractedLocations([]);
                 return;
             }
             
@@ -263,6 +265,10 @@ function startAuthenticatedChat() {
             mainMessageInteractions.forEach(item => {
                 userInteractedMessageIds.add(normalizeId(item.message_id));
             });
+
+            if (window.Mybits) {
+                Mybits.setInteractedLocations(mainMessageInteractions);
+            }
             
             // Group interactions by state first, then by LGA
             const stateGroups = {};
@@ -689,6 +695,10 @@ function startAuthenticatedChat() {
 
         if (msgId != null && document.querySelector(`.message-item[data-id="${msgId}"], .reply-message[data-id="${msgId}"]`)) {
             return;
+        }
+
+        if (window.Mybits && data.state && data.lga) {
+            Mybits.handleActivity(data.state, data.lga, data.username === currentUsername);
         }
 
         // If this is user's own message, automatically track it

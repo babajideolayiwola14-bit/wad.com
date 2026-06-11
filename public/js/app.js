@@ -10,7 +10,7 @@ window.App = (function () {
 
     function setupAuthenticatedChrome(user) {
         LocationFeed.setSessionChrome(true);
-        closeMybitPanel();
+        Mybits.closePanel();
 
         Guest.setWriteControlsDisabled(false);
 
@@ -20,13 +20,15 @@ window.App = (function () {
         if (profileLocation) {
             profileLocation.textContent = user?.state && user?.lga ? `${user.state} / ${user.lga}` : '';
         }
+
+        Mybits.onAuthenticated();
     }
 
     async function enterGuestMode() {
         Guest.teardown();
         window.chatLoaded = false;
         window.renderAuthenticatedFeed = null;
-        closeMybitPanel();
+        Mybits.onGuest();
         showChatShell();
         LocationFeed.setSessionChrome(false);
         LocationFeed.initControls();
@@ -52,7 +54,7 @@ window.App = (function () {
     async function bootstrap() {
         Modals.init();
         Auth.bindForms();
-        initMybitMobileToggle();
+        Mybits.init();
         showChatShell();
 
         const token = Session.getToken();
@@ -64,25 +66,7 @@ window.App = (function () {
     }
 
     function closeMybitPanel() {
-        document.getElementById('profile-panel')?.classList.remove('show');
-        document.getElementById('profile-overlay')?.classList.remove('show');
-    }
-
-    function initMybitMobileToggle() {
-        const btn = document.getElementById('mybit-mobile-toggle');
-        const panel = document.getElementById('profile-panel');
-        const overlay = document.getElementById('profile-overlay');
-        if (!btn || btn.dataset.bound) return;
-        btn.dataset.bound = '1';
-
-        btn.addEventListener('click', () => {
-            panel?.classList.toggle('show');
-            overlay?.classList.toggle('show');
-        });
-
-        overlay?.addEventListener('click', () => {
-            closeMybitPanel();
-        });
+        Mybits.closePanel();
     }
 
     return {

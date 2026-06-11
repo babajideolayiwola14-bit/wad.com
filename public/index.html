@@ -15,7 +15,10 @@
                     <div id="profile-username" class="profile-username"></div>
                     <div id="profile-location" class="profile-location"></div>
                 </div>
-                <div class="profile-section-title">mybit</div>
+                <div id="mybits-sidebar-heading" class="mybits-sidebar-heading">
+                    <span class="profile-section-title">mybits</span>
+                    <span id="mybits-sidebar-badge" class="mybits-badge hidden" aria-live="polite"></span>
+                </div>
                 <div id="profile-interactions" class="profile-interactions"></div>
             </aside>
             <div class="chat-main">
@@ -30,7 +33,12 @@
                     </select>
                 </div>
 
-                <button type="button" id="mybit-mobile-toggle" class="mybit-mobile-toggle" aria-label="Open mybit history">mybit</button>
+                <button type="button" id="mybits-tab-btn" class="mybits-tab" aria-label="Open mybits">
+                    <span class="mybits-tab-icon" aria-hidden="true">☰</span>
+                    <span class="mybits-tab-title">mybits</span>
+                    <span id="mybits-badge" class="mybits-badge hidden" aria-live="polite"></span>
+                    <span class="mybits-tab-chevron" aria-hidden="true">›</span>
+                </button>
 
                 <div id="search-wrapper">
                     <input type="text" id="search-input" placeholder="Search messages in this location..." aria-label="Search messages">
@@ -138,14 +146,15 @@
         </div>
     </div>
 
-    <script src="js/locations.js?v=17"></script>
-    <script src="js/session.js?v=17"></script>
-    <script src="js/feed-view.js?v=17"></script>
-    <script src="js/location-feed.js?v=17"></script>
-    <script src="js/modals.js?v=17"></script>
-    <script src="js/auth.js?v=17"></script>
-    <script src="js/guest.js?v=17"></script>
-    <script src="js/chat.js?v=17"></script>
-    <script src="js/app.js?v=17"></script>
+    <script src="js/locations.js?v=19"></script>
+    <script src="js/session.js?v=19"></script>
+    <script src="js/feed-view.js?v=19"></script>
+    <script src="js/location-feed.js?v=19"></script>
+    <script src="js/modals.js?v=19"></script>
+    <script src="js/auth.js?v=19"></script>
+    <script src="js/guest.js?v=19"></script>
+    <script src="js/mybits.js?v=19"></script>
+    <script src="js/chat.js?v=19"></script>
+    <script src="js/app.js?v=19"></script>
 </body>
 </html>
