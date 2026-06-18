@@ -386,7 +386,7 @@ button[type="submit"]:hover {
 
 .reply-message .message-text {
     flex: 1;
-    white-space: pre-line;
+    white-space: pre-wrap;
     word-wrap: break-word;
 }
 
@@ -480,8 +480,14 @@ button[type="submit"]:hover {
 
 .message-text {
     flex: 1;
-    white-space: pre-line;
+    white-space: pre-wrap;
     word-wrap: break-word;
+    overflow-wrap: anywhere;
+}
+
+.message-text a {
+    color: #007bff;
+    text-decoration: underline;
 }
 
 .message-actions {

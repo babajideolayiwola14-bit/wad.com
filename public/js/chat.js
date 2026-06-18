@@ -17,6 +17,10 @@ function startAuthenticatedChat() {
         return window.Security ? Security.escapeHtml(text) : String(text ?? '');
     }
 
+    function fmt(text) {
+        return window.Security ? Security.formatMessageText(text) : esc(text);
+    }
+
     function getAttachmentMarkup(url, type) {
         return FeedView.getAttachmentMarkup(url, type);
     }
@@ -624,7 +628,7 @@ function startAuthenticatedChat() {
         const actionsHtml = `<button class="reply-btn" data-username="${esc(data.username)}" title="Reply">\uD83D\uDCAC</button> <button class="share-btn" data-message="${esc(data.message)}" data-id="${esc(String(data.id))}" title="Share">\u2197</button>${own ? ` <button class="delete-btn" data-id="${esc(String(data.id))}" title="Delete">🗑️</button>` : ''}`;
         messageElement.innerHTML = `
             <div style="display: flex; align-items: center; width: 100%; gap: 8px;">
-                <div class="message-text"><strong>${esc(data.username)}:</strong> ${esc(data.message)} <small>(${new Date(data.timestamp).toLocaleTimeString()})</small> <span class="reply-count" style="display:none"></span></div>
+                <div class="message-text"><strong>${esc(data.username)}:</strong> ${fmt(data.message)} <small>(${new Date(data.timestamp).toLocaleTimeString()})</small> <span class="reply-count" style="display:none"></span></div>
                 <div class="message-actions">${actionsHtml}</div>
             </div>
             ${getAttachmentMarkup(data.attachmentUrl, data.attachmentType)}
@@ -647,7 +651,7 @@ function startAuthenticatedChat() {
                     const replyActions = `<button class="reply-btn" data-username="${esc(data.username)}" title="Reply">\uD83D\uDCAC</button> <button class="share-btn" data-message="${esc(cleanMessage)}" data-id="${esc(String(data.id))}" title="Share">\u2197</button>${ownReply ? ` <button class="delete-btn" data-id="${esc(String(data.id))}" title="Delete">🗑️</button>` : ''}`;
                     replyItem.innerHTML = `
                         <div style="display: flex; align-items: center; width: 100%; gap: 8px;">
-                            <div class="message-text"><strong>${esc(data.username)}:</strong> ${esc(cleanMessage)} <small>(${new Date(data.timestamp).toLocaleTimeString()})</small> <span class="reply-count" style="display:none"></span></div>
+                            <div class="message-text"><strong>${esc(data.username)}:</strong> ${fmt(cleanMessage)} <small>(${new Date(data.timestamp).toLocaleTimeString()})</small> <span class="reply-count" style="display:none"></span></div>
                             <div class="message-actions">${replyActions}</div>
                         </div>
                         ${getAttachmentMarkup(data.attachmentUrl, data.attachmentType)}
@@ -815,7 +819,7 @@ function startAuthenticatedChat() {
             if (isReplying) return;
             const replyForm = replySendBtn.closest('.reply-form');
             const replyInput = replyForm.querySelector('.reply-input');
-            const message = replyInput.textContent.trim();
+            const message = Security.getEditablePlainText(replyInput).trim();
             const replyAttachInput = replyForm.querySelector('.reply-attachment-input');
             const replyTo = replyInput.dataset.replyTo;
             const parentItem = replyForm.closest('.message-item, .reply-message');
@@ -884,7 +888,7 @@ function startAuthenticatedChat() {
     if (sendBtn) {
         sendBtn.addEventListener('click', async () => {
             if (isSending) return;
-            let message = messageInput.textContent.trim();
+            let message = Security.getEditablePlainText(messageInput).trim();
             let attachmentUrl = null;
             let attachmentType = null;
             try {

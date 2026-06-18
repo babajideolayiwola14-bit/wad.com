@@ -14,6 +14,7 @@ const nodemailer = require('nodemailer');
 
 const { PUBLIC_DIR, UPLOADS_DIR } = require('./paths');
 const { dbRun, dbAll, initDb } = require('./db');
+const { normalizeMessageText, hasMessageContent } = require('./message-utils');
 
 // Security modules
 const rateLimit = require('express-rate-limit');
@@ -290,14 +291,42 @@ app.use((req, res, next) => {
 // Trust reverse proxy (Render, etc.) for correct client IP
 app.set('trust proxy', 1);
 
+// Fields that must keep literal newlines/spaces — skip XSS encoding on these keys only.
+const PRESERVE_BODY_KEYS = ['message', 'reason', 'rejection_reason'];
+
+function preserveBodyKeys(body) {
+  const preserved = {};
+  if (!body || typeof body !== 'object') return preserved;
+  for (const key of PRESERVE_BODY_KEYS) {
+    if (typeof body[key] === 'string') {
+      preserved[key] = body[key];
+      delete body[key];
+    }
+  }
+  return preserved;
+}
+
+function restoreBodyKeys(body, preserved) {
+  if (body && preserved) Object.assign(body, preserved);
+}
+
 app.use(bodyParser.json({ limit: '100kb' }));
 app.use((req, res, next) => {
+  const preserved = preserveBodyKeys(req.body);
   if (req.body) mongoSanitize(req.body);
+  restoreBodyKeys(req.body, preserved);
   if (req.query) mongoSanitize(req.query);
   if (req.params) mongoSanitize(req.params);
   next();
 });
-app.use(xss());
+app.use((req, res, next) => {
+  const preserved = preserveBodyKeys(req.body);
+  xss()(req, res, (err) => {
+    if (err) return next(err);
+    restoreBodyKeys(req.body, preserved);
+    next();
+  });
+});
 app.use(generalLimiter);
 
 app.get('/', (req, res) => {
@@ -809,9 +838,17 @@ app.get('/messages', async (req, res) => {
 
 // Send message (authenticated endpoint)
 app.post('/send-message', verifyHttpToken, async (req, res) => {
-  const { message } = req.body;
-  
-  if (!message || !message.trim()) {
+  let message;
+  try {
+    message = normalizeMessageText(req.body && req.body.message);
+  } catch (err) {
+    if (err.code === 'MESSAGE_TOO_LONG') {
+      return res.status(400).json({ message: err.message });
+    }
+    throw err;
+  }
+
+  if (!hasMessageContent(message)) {
     return res.status(400).json({ message: 'Message cannot be empty' });
   }
   
@@ -830,7 +867,7 @@ app.post('/send-message', verifyHttpToken, async (req, res) => {
     const result = await dbRun(
       `INSERT INTO messages (username, message, state, lga)
        VALUES (?, ?, ?, ?)`,
-      [username, message.trim(), state, lga]
+      [username, message, state, lga]
     );
     
     // Emit via socket.io
@@ -838,7 +875,7 @@ app.post('/send-message', verifyHttpToken, async (req, res) => {
     const newMsg = {
       id: messageId,
       username,
-      message: message.trim(),
+      message,
       state,
       lga,
       created_at: new Date().toISOString()
@@ -1002,13 +1039,24 @@ app.get('/search', verifyHttpToken, async (req, res) => {
 // Report false rejection
 app.post('/report-rejection', verifyHttpToken, async (req, res) => {
   try {
-    const { message, reason } = req.body;
-    if (!message) {
+    let message;
+    try {
+      message = normalizeMessageText(req.body && req.body.message);
+    } catch (err) {
+      if (err.code === 'MESSAGE_TOO_LONG') {
+        return res.status(400).json({ message: err.message });
+      }
+      throw err;
+    }
+    if (!hasMessageContent(message)) {
       return res.status(400).json({ message: 'Message text required' });
     }
+    const reason = req.body && req.body.reason
+      ? normalizeMessageText(req.body.reason)
+      : 'User reported false rejection';
     await dbRun(
       'INSERT INTO flagged_messages (username, message, rejection_reason, state, lga, status) VALUES (?, ?, ?, ?, ?, ?)',
-      [req.user.username, message, reason || 'User reported false rejection', req.user.state, req.user.lga, 'pending']
+      [req.user.username, message, reason, req.user.state, req.user.lga, 'pending']
     );
     res.json({ ok: true, message: 'Your report has been submitted for review' });
   } catch (err) {
@@ -1629,7 +1677,23 @@ io.on('connection', (socket) => {
         return;
       }
       
-      const message = typeof data === 'string' ? data : data.message;
+      const rawMessage = typeof data === 'string' ? data : (data && data.message);
+      let message;
+      try {
+        message = normalizeMessageText(rawMessage);
+      } catch (err) {
+        if (err.code === 'MESSAGE_TOO_LONG') {
+          socket.emit('message rejected', { reason: err.message, message: String(rawMessage || '') });
+          return;
+        }
+        throw err;
+      }
+
+      if (!hasMessageContent(message)) {
+        socket.emit('message rejected', { reason: 'Message cannot be empty', message: '' });
+        return;
+      }
+
       const attachmentUrl = data && data.attachmentUrl ? data.attachmentUrl : null;
       const attachmentType = data && data.attachmentType ? data.attachmentType : null;
       const parentId = (data && data.parentId) ? Number(data.parentId) : null;

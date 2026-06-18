@@ -1,5 +1,5 @@
 /**
- * Client-side HTML escaping for user-generated content.
+ * Client-side HTML escaping and message formatting.
  */
 window.Security = (function () {
     function escapeHtml(text) {
@@ -12,6 +12,25 @@ window.Security = (function () {
             .replace(/'/g, '&#39;');
     }
 
+    /** Read plain text from a contenteditable, preserving line breaks from Enter/paste. */
+    function getEditablePlainText(el) {
+        if (!el) return '';
+        const raw = typeof el.innerText === 'string' ? el.innerText : el.textContent || '';
+        return raw.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+    }
+
+    /** Escape HTML, keep paragraph breaks, preserve indentation, linkify URLs. */
+    function formatMessageText(text) {
+        if (text == null) return '';
+        let safe = escapeHtml(String(text));
+        safe = safe.replace(/\n/g, '<br>');
+        safe = safe.replace(
+            /(https?:\/\/[^\s<]+[^\s<.,;:!?)])/gi,
+            '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>'
+        );
+        return safe;
+    }
+
     /** Only allow attachment paths served from /uploads/ */
     function safeUploadUrl(url) {
         if (!url || typeof url !== 'string') return '';
@@ -21,5 +40,5 @@ window.Security = (function () {
         return escapeHtml(trimmed);
     }
 
-    return { escapeHtml, safeUploadUrl };
+    return { escapeHtml, getEditablePlainText, formatMessageText, safeUploadUrl };
 })();
