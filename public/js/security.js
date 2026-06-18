@@ -19,15 +19,36 @@ window.Security = (function () {
         return raw.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
     }
 
+    function linkifyEscaped(safe) {
+        const pattern = /(\bhttps?:\/\/[^\s<]+|\bwww\.[a-z0-9](?:[-a-z0-9]*[a-z0-9])?(?:\.[a-z0-9](?:[-a-z0-9]*[a-z0-9])?)+(?:\/[^\s<]*)?)/gi;
+
+        return safe.replace(pattern, (match) => {
+            let display = match;
+            let href = match.replace(/&amp;/g, '&');
+            let trailing = '';
+
+            while (/[.,;:!?)]$/.test(href)) {
+                trailing = display.slice(-1) + trailing;
+                display = display.slice(0, -1);
+                href = href.slice(0, -1);
+            }
+
+            if (!href) return match;
+
+            if (/^www\./i.test(href)) {
+                href = 'https://' + href;
+            }
+
+            return `<a href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">${display}</a>${trailing}`;
+        });
+    }
+
     /** Escape HTML, keep paragraph breaks, preserve indentation, linkify URLs. */
     function formatMessageText(text) {
         if (text == null) return '';
         let safe = escapeHtml(String(text));
         safe = safe.replace(/\n/g, '<br>');
-        safe = safe.replace(
-            /(https?:\/\/[^\s<]+[^\s<.,;:!?)])/gi,
-            '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>'
-        );
+        safe = linkifyEscaped(safe);
         return safe;
     }
 
