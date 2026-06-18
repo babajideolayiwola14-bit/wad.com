@@ -7,6 +7,10 @@ window.FeedView = (function () {
         return window.Security ? Security.escapeHtml(text) : String(text ?? '');
     }
 
+    function ts(value) {
+        return window.Security ? Security.formatMessageTimestamp(value) : '';
+    }
+
     function fmt(text) {
         return window.Security ? Security.formatMessageText(text) : esc(text);
     }
@@ -74,7 +78,7 @@ window.FeedView = (function () {
             const actionsHtml = buildActionsHtml(msg, currentUsername, readOnly);
             messageElement.innerHTML = `
                 <div style="display:flex;align-items:center;width:100%;gap:8px;">
-                    <div class="message-text"><strong>${esc(msg.username)}:</strong> ${fmt(msg.message)} <small>(${new Date(msg.created_at).toLocaleTimeString()})</small> <span class="reply-count" style="display:none"></span></div>
+                    <div class="message-text"><strong>${esc(msg.username)}:</strong> ${fmt(msg.message)} <small>(${ts(msg.created_at)})</small> <span class="reply-count" style="display:none"></span></div>
                     <div class="message-actions">${actionsHtml}</div>
                 </div>
                 ${getAttachmentMarkup(msg.attachment_url, msg.attachment_type)}
@@ -107,7 +111,7 @@ window.FeedView = (function () {
                 const actionsHtml = buildActionsHtml({ ...msg, message: cleanMessage }, currentUsername, readOnly);
                 replyItem.innerHTML = `
                     <div style="display:flex;align-items:center;width:100%;gap:8px;">
-                        <div class="message-text"><strong>${esc(msg.username)}:</strong> ${fmt(cleanMessage)} <small>(${new Date(msg.created_at).toLocaleTimeString()})</small></div>
+                        <div class="message-text"><strong>${esc(msg.username)}:</strong> ${fmt(cleanMessage)} <small>(${ts(msg.created_at)})</small></div>
                         <div class="message-actions">${actionsHtml}</div>
                     </div>
                     ${getAttachmentMarkup(msg.attachment_url, msg.attachment_type)}
