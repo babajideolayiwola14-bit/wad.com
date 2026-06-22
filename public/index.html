@@ -4,13 +4,17 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>mybit</title>
-    <link rel="stylesheet" href="css/style.css?v=26">
+    <link rel="stylesheet" href="css/style.css?v=27">
 </head>
 <body>
     <div class="chat-container" id="chat-container">
         <div class="chat-shell">
             <div id="profile-overlay" class="profile-overlay"></div>
             <aside class="profile-panel" id="profile-panel">
+                <div class="app-brand">
+                    <span class="app-wordmark" aria-label="mybit">mybit</span>
+                </div>
+                <div class="sidebar-auth-content">
                 <div class="profile-header">
                     <div id="profile-username" class="profile-username"></div>
                     <div id="profile-location" class="profile-location"></div>
@@ -20,10 +24,13 @@
                     <span id="mybits-sidebar-badge" class="mybits-badge hidden" aria-live="polite"></span>
                 </div>
                 <div id="profile-interactions" class="profile-interactions"></div>
+                </div>
             </aside>
             <div class="chat-main">
-                <div id="guest-location-bar" class="guest-location-bar hidden">
+                <header class="app-mobile-brand" aria-hidden="false">
                     <span class="app-wordmark" aria-label="mybit">mybit</span>
+                </header>
+                <div id="guest-location-bar" class="guest-location-bar hidden">
                     <div class="location-filters">
                         <label for="guest-state">State</label>
                         <select id="guest-state" aria-label="Browse by state">
@@ -149,16 +156,16 @@
         </div>
     </div>
 
-    <script src="js/security.js?v=26"></script>
-    <script src="js/locations.js?v=26"></script>
-    <script src="js/session.js?v=26"></script>
-    <script src="js/feed-view.js?v=26"></script>
-    <script src="js/location-feed.js?v=26"></script>
-    <script src="js/modals.js?v=26"></script>
-    <script src="js/auth.js?v=26"></script>
-    <script src="js/guest.js?v=26"></script>
-    <script src="js/mybits.js?v=26"></script>
-    <script src="js/chat.js?v=26"></script>
-    <script src="js/app.js?v=26"></script>
+    <script src="js/security.js?v=27"></script>
+    <script src="js/locations.js?v=27"></script>
+    <script src="js/session.js?v=27"></script>
+    <script src="js/feed-view.js?v=27"></script>
+    <script src="js/location-feed.js?v=27"></script>
+    <script src="js/modals.js?v=27"></script>
+    <script src="js/auth.js?v=27"></script>
+    <script src="js/guest.js?v=27"></script>
+    <script src="js/mybits.js?v=27"></script>
+    <script src="js/chat.js?v=27"></script>
+    <script src="js/app.js?v=27"></script>
 </body>
 </html>

@@ -117,6 +117,29 @@ button[type="submit"]:hover {
     display: flex;
     flex-direction: column;
     gap: 8px;
+    flex-shrink: 0;
+}
+
+.app-brand {
+    flex-shrink: 0;
+    padding: 2px 0 10px;
+    margin-bottom: 4px;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.sidebar-auth-content {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.app-mobile-brand {
+    display: none;
+    flex-shrink: 0;
+    padding: 4px 0 10px;
 }
 
 .profile-header {
@@ -990,10 +1013,28 @@ button[type="submit"]:hover {
     display: none;
 }
 
-/* Chat main layout */
-body:not(.authenticated) .profile-panel,
+/* Guest overlay never used; sidebar brand rail on desktop instead */
 body:not(.authenticated) .profile-overlay {
     display: none !important;
+}
+
+@media (min-width: 769px) {
+    body:not(.authenticated) .profile-panel {
+        display: flex;
+        width: 92px;
+        min-width: 92px;
+        padding: 14px 10px;
+    }
+
+    body:not(.authenticated) .sidebar-auth-content {
+        display: none;
+    }
+
+    body:not(.authenticated) .app-brand {
+        border-bottom: none;
+        margin-bottom: 0;
+        padding: 0;
+    }
 }
 
 .mybits-tab {
@@ -1095,14 +1136,25 @@ body:not(.authenticated) .profile-overlay {
     body.authenticated .mybits-sidebar-badge {
         display: none;
     }
+
+    body:not(.authenticated) .profile-panel {
+        display: none !important;
+    }
+
+    .app-mobile-brand {
+        display: block;
+    }
+
+    .profile-panel .app-brand {
+        display: none;
+    }
+
+    body.authenticated .profile-panel.show .app-brand {
+        display: block;
+    }
 }
 
 .guest-location-bar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    flex-wrap: wrap;
     margin-bottom: 10px;
     padding: 10px 12px;
     background: #f8f9fa;
@@ -1116,7 +1168,6 @@ body:not(.authenticated) .profile-overlay {
     color: #1a3a5c;
     letter-spacing: 0.01em;
     line-height: 1;
-    flex-shrink: 0;
     user-select: none;
 }
 
@@ -1125,8 +1176,6 @@ body:not(.authenticated) .profile-overlay {
     align-items: center;
     gap: 10px;
     flex-wrap: wrap;
-    justify-content: flex-end;
-    margin-left: auto;
 }
 
 .guest-location-bar label {
@@ -1216,13 +1265,11 @@ body:not(.authenticated) .profile-overlay {
     }
 
     .app-wordmark {
-        font-size: 1.15rem;
+        font-size: 1.2rem;
     }
 
     .location-filters {
         width: 100%;
-        margin-left: 0;
-        justify-content: flex-start;
     }
 
     .guest-location-bar select {
