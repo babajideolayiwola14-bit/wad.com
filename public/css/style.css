@@ -13,6 +13,10 @@ body {
     box-sizing: border-box;
 }
 
+.hidden {
+    display: none !important;
+}
+
 .login-container {
     background-color: white;
     padding: 20px;
