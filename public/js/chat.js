@@ -326,7 +326,6 @@ function startAuthenticatedChat() {
                 const stateHeader = document.createElement('div');
                 stateHeader.className = 'state-group-header';
                 const totalInteractions = Object.values(stateGroup.lgas).reduce((sum, lga) => sum + lga.interactions.length, 0);
-                stateHeader.style.cssText = 'padding:10px; background:#fff; color:#000; cursor:pointer; font-weight:bold; border-radius:4px; margin-bottom:5px; display:flex; justify-content:space-between; align-items:center;';
                 stateHeader.innerHTML = `
                     <span><span class="state-toggle-icon">▶</span> ${esc(stateGroup.state)}</span>
                     <span style="font-size:12px; opacity:0.9;">${totalInteractions} interaction${totalInteractions !== 1 ? 's' : ''}</span>
@@ -335,7 +334,6 @@ function startAuthenticatedChat() {
                 // Create container for LGAs in this state
                 const lgasContainer = document.createElement('div');
                 lgasContainer.className = 'state-lgas-container';
-                lgasContainer.style.cssText = 'margin-bottom:15px; padding-left:10px; display:none;';
                 
                 // Sort LGAs by most recent interaction
                 const sortedLgas = Object.values(stateGroup.lgas).sort((a, b) => b.latestTime - a.latestTime);
@@ -345,7 +343,6 @@ function startAuthenticatedChat() {
                     // LGA header
                     const lgaHeader = document.createElement('div');
                     lgaHeader.className = 'lga-group-header';
-                    lgaHeader.style.cssText = 'padding:8px; background:#f0f0f0; cursor:pointer; font-weight:600; border-radius:4px; margin:5px 0; display:flex; justify-content:space-between; align-items:center;';
                     lgaHeader.innerHTML = `
                         <span><span class="lga-toggle-icon">▶</span> ${esc(lgaGroup.lga)}</span>
                         <span style="font-size:11px; color:#666;">${lgaGroup.interactions.length} interaction${lgaGroup.interactions.length !== 1 ? 's' : ''}</span>
@@ -354,17 +351,15 @@ function startAuthenticatedChat() {
                     // LGA interactions container
                     const lgaInteractionsContainer = document.createElement('div');
                     lgaInteractionsContainer.className = 'lga-interactions';
-                    lgaInteractionsContainer.style.cssText = 'padding-left:15px; display:none;';
                     
                     // Add interactions (limit to 10 initially)
                     const displayLimit = 10;
                     lgaGroup.interactions.slice(0, displayLimit).forEach(item => {
                         const div = document.createElement('div');
-                        div.className = 'profile-interaction-item';
+                        div.className = 'profile-interaction-item sidebar-interaction-item';
                         div.dataset.messageId = item.message_id;
                         div.dataset.state = item.state;
                         div.dataset.lga = item.lga;
-                        div.style.cssText = 'padding:8px; margin:5px 0; background:#fff; border-left:3px solid #007bff; cursor:pointer;';
                         div.innerHTML = `
                             <div class="profile-interaction-meta" style="font-size:11px; color:#666;">${esc(item.type)} • ${new Date(item.created_at).toLocaleString()}</div>
                             <div class="profile-interaction-text" style="font-size:13px; margin-top:4px;">${esc(item.message.substring(0, 80))}${item.message.length > 80 ? '...' : ''}</div>
@@ -375,17 +370,16 @@ function startAuthenticatedChat() {
                     // Add "Show more" button if there are more interactions
                     if (lgaGroup.interactions.length > displayLimit) {
                         const showMoreBtn = document.createElement('button');
+                        showMoreBtn.className = 'sidebar-show-more-btn';
                         showMoreBtn.textContent = `Show ${lgaGroup.interactions.length - displayLimit} more`;
-                        showMoreBtn.style.cssText = 'padding:5px 10px; margin:5px 0; background:#e0e0e0; border:none; border-radius:3px; cursor:pointer; font-size:12px;';
                         showMoreBtn.addEventListener('click', (e) => {
                             e.stopPropagation();
                             lgaGroup.interactions.slice(displayLimit).forEach(item => {
                                 const div = document.createElement('div');
-                                div.className = 'profile-interaction-item';
+                                div.className = 'profile-interaction-item sidebar-interaction-item';
                                 div.dataset.messageId = item.message_id;
                                 div.dataset.state = item.state;
                                 div.dataset.lga = item.lga;
-                                div.style.cssText = 'padding:8px; margin:5px 0; background:#fff; border-left:3px solid #000; cursor:pointer;';
                                 div.innerHTML = `
                                     <div class="profile-interaction-meta" style="font-size:11px; color:#666;">${esc(item.type)} • ${new Date(item.created_at).toLocaleString()}</div>
                                     <div class="profile-interaction-text" style="font-size:13px; margin-top:4px;">${esc(item.message.substring(0, 80))}${item.message.length > 80 ? '...' : ''}</div>
@@ -457,11 +451,9 @@ function startAuthenticatedChat() {
                 const messageElement = document.querySelector(`[data-id="${messageId}"]`);
                 if (messageElement) {
                     messageElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    messageElement.style.backgroundColor = '#f5f5f5';
-                    messageElement.style.border = '2px solid #000';
+                    messageElement.classList.add('highlight-flash');
                     setTimeout(() => {
-                        messageElement.style.backgroundColor = '';
-                        messageElement.style.border = '';
+                        messageElement.classList.remove('highlight-flash');
                     }, 3000);
                 }
             }, 300);
@@ -745,9 +737,9 @@ function startAuthenticatedChat() {
             replyForm.classList.add('reply-form');
             replyForm.innerHTML = `
                 <div class="reply-input" contenteditable="true" placeholder="Reply to @${username}..." data-reply-to="${username}"></div>
-                <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
-                    <button class="reply-attach-btn" type="button" style="padding:6px 10px; border:1px solid #ccc; border-radius:4px; background:#fff; cursor:pointer;">📎</button>
-                    <span class="reply-attachment-name" style="font-size:12px; color:#555;"></span>
+                <div class="reply-form-actions">
+                    <button class="reply-attach-btn" type="button">📎</button>
+                    <span class="reply-attachment-name"></span>
                     <input type="file" class="reply-attachment-input" style="display:none" accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt" />
                     <button class="reply-send-btn">Reply</button>
                     <button class="reply-cancel-btn">Cancel</button>
