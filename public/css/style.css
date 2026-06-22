@@ -1100,13 +1100,33 @@ body:not(.authenticated) .profile-overlay {
 .guest-location-bar {
     display: flex;
     align-items: center;
-    gap: 10px;
+    justify-content: space-between;
+    gap: 12px;
     flex-wrap: wrap;
     margin-bottom: 10px;
-    padding: 10px;
+    padding: 10px 12px;
     background: #f8f9fa;
     border-radius: 6px;
     border: 1px solid #e9ecef;
+}
+
+.app-wordmark {
+    font-size: 1.35rem;
+    font-weight: 700;
+    color: #1a3a5c;
+    letter-spacing: 0.01em;
+    line-height: 1;
+    flex-shrink: 0;
+    user-select: none;
+}
+
+.location-filters {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    margin-left: auto;
 }
 
 .guest-location-bar label {
@@ -1193,6 +1213,21 @@ body:not(.authenticated) .profile-overlay {
 @media (max-width: 480px) {
     body {
         padding: 5px;
+    }
+
+    .app-wordmark {
+        font-size: 1.15rem;
+    }
+
+    .location-filters {
+        width: 100%;
+        margin-left: 0;
+        justify-content: flex-start;
+    }
+
+    .guest-location-bar select {
+        min-width: 120px;
+        flex: 1;
     }
 
     .login-container {
