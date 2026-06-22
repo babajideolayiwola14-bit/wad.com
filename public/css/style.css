@@ -9,6 +9,8 @@
     --color-text-muted: #536471;
     --color-accent: #1d9bf0;
     --color-accent-hover: #1a8cd8;
+    --color-mybits: #1d9bf0;
+    --color-mybits-hover: #1a8cd8;
     --color-brand: #1a3a5c;
     --radius-sm: 8px;
     --radius-md: 12px;
@@ -213,9 +215,9 @@ button[type="submit"]:hover {
 
 .profile-section-title {
     font-weight: 700;
-    font-size: 14px;
-    color: var(--color-text);
-    margin-top: 4px;
+    font-size: 13px;
+    color: var(--color-mybits);
+    margin: 0;
 }
 
 .profile-interactions {
@@ -361,19 +363,20 @@ button[type="submit"]:hover {
     min-width: 88px;
     min-height: 44px;
     padding: 10px 20px;
-    background: var(--color-accent);
-    color: #fff;
-    border: none;
+    background: var(--color-bg);
+    color: var(--color-mybits);
+    border: 1.5px solid var(--color-mybits);
     border-radius: var(--radius-pill);
     cursor: pointer;
     font-size: 15px;
     font-weight: 700;
     font-family: inherit;
-    transition: background-color 0.15s ease;
+    transition: background-color 0.15s ease, color 0.15s ease;
 }
 
 #send-btn:hover:not(:disabled) {
-    background: var(--color-accent-hover);
+    background: var(--color-mybits);
+    color: #fff;
 }
 
 #send-btn:disabled {
@@ -568,12 +571,12 @@ button[type="submit"]:hover {
 }
 
 .reply-send-btn {
-    background-color: var(--color-accent);
+    background-color: var(--color-mybits);
     color: #fff;
 }
 
 .reply-send-btn:hover {
-    background-color: var(--color-accent-hover);
+    background-color: var(--color-mybits-hover);
 }
 
 .reply-attach-btn {
@@ -1236,14 +1239,14 @@ body:not(.authenticated) .profile-overlay {
     flex: 0 0 auto;
     font-size: 18px;
     line-height: 1;
-    color: var(--color-accent);
+    color: var(--color-mybits);
 }
 
 .mybits-tab-title {
     flex: 1;
     font-size: 15px;
     font-weight: 700;
-    color: var(--color-accent);
+    color: var(--color-mybits);
     text-align: left;
 }
 
@@ -1251,7 +1254,7 @@ body:not(.authenticated) .profile-overlay {
     flex: 0 0 auto;
     font-size: 22px;
     line-height: 1;
-    color: var(--color-accent);
+    color: var(--color-mybits);
     font-weight: 300;
 }
 
@@ -1499,13 +1502,6 @@ body:not(.authenticated) .profile-overlay {
 .modal-content .submit-btn {
     width: 100%;
     margin-top: 8px;
-}
-
-.profile-section-title {
-    font-size: 13px;
-    font-weight: 700;
-    color: var(--color-accent);
-    margin: 0;
 }
 
 @media (max-width: 480px) {
