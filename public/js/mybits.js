@@ -1,5 +1,5 @@
 /**
- * mybits — activity sidebar, mobile drawer, and cross-location notifications.
+ * mybits — activity sidebar, mobile drawer, and cross-location reply notifications.
  * Authenticated users only.
  */
 window.Mybits = (function () {
@@ -7,6 +7,8 @@ window.Mybits = (function () {
     const MOBILE_MQ = window.matchMedia('(max-width: 768px)');
 
     let interactedLocations = new Set();
+    let interactedMessageIds = new Set();
+    let interactedLocationList = [];
     let unseenCount = 0;
     let mediaQueryBound = false;
 
@@ -34,14 +36,43 @@ window.Mybits = (function () {
         sessionStorage.setItem(STORAGE_KEY, String(unseenCount));
     }
 
-    function setInteractedLocations(interactions) {
+    function syncWatchRooms() {
+        const socket = window.activeSocket;
+        if (!socket?.connected || !document.body.classList.contains('authenticated')) return;
+        socket.emit('mybits:watch', { locations: interactedLocationList });
+    }
+
+    function setInteractedFromProfile(interactions) {
         interactedLocations.clear();
+        interactedMessageIds.clear();
+        interactedLocationList = [];
+        const locMap = new Map();
+
         (interactions || []).forEach((item) => {
+            const messageId = Number(item.message_id);
+            if (!Number.isNaN(messageId)) {
+                interactedMessageIds.add(messageId);
+            }
             if (item.state && item.lga) {
-                interactedLocations.add(locKey(item.state, item.lga));
+                const key = locKey(item.state, item.lga);
+                interactedLocations.add(key);
+                if (!locMap.has(key)) {
+                    locMap.set(key, {
+                        state: String(item.state).trim(),
+                        lga: String(item.lga).trim()
+                    });
+                }
             }
         });
+
+        interactedLocationList = Array.from(locMap.values());
+        syncWatchRooms();
         updateBadges();
+    }
+
+    /** @deprecated use setInteractedFromProfile */
+    function setInteractedLocations(interactions) {
+        setInteractedFromProfile(interactions);
     }
 
     function isViewingLocation(state, lga) {
@@ -50,15 +81,58 @@ window.Mybits = (function () {
         return locKey(sel.state, sel.lga) === locKey(state, lga);
     }
 
-    function handleActivity(state, lga, fromSelf) {
+    function showBrowserNotification(username, message, state, lga) {
+        if (!('Notification' in window) || Notification.permission !== 'granted') return;
+        const snippet = String(message || '').replace(/\s+/g, ' ').trim().slice(0, 100);
+        try {
+            new Notification('New reply on mybit', {
+                body: `${username || 'Someone'} replied in ${state} / ${lga}: ${snippet}`,
+                tag: `mybits-${locKey(state, lga)}-${Date.now()}`,
+                renotify: true
+            });
+        } catch {
+            // Some browsers reject renotify or tag reuse
+            new Notification('New reply on mybit', {
+                body: `${username || 'Someone'} replied in ${state} / ${lga}`
+            });
+        }
+    }
+
+    function handleIncomingMessage(payload) {
         if (!document.body.classList.contains('authenticated')) return;
-        if (!state || !lga || fromSelf) return;
-        if (!interactedLocations.has(locKey(state, lga))) return;
+        if (!payload || payload.fromSelf) return;
+
+        const state = (payload.state || '').trim();
+        const lga = (payload.lga || '').trim();
+        if (!state || !lga) return;
+
+        const parentId = payload.parentId != null ? Number(payload.parentId) : null;
+        const rootId = payload.rootId != null ? Number(payload.rootId) : null;
+        if (parentId == null && rootId == null) return;
+
+        const relevantIds = [parentId, rootId].filter((id) => id != null && !Number.isNaN(id));
+        const isRelevantReply = relevantIds.some((id) => interactedMessageIds.has(id));
+        if (!isRelevantReply) return;
         if (isViewingLocation(state, lga)) return;
 
         unseenCount += 1;
         saveCount();
         updateBadges();
+        showBrowserNotification(payload.username, payload.message, state, lga);
+    }
+
+    /** Legacy signature — forwards to handleIncomingMessage */
+    function handleActivity(state, lga, fromSelf, extra) {
+        handleIncomingMessage({
+            state,
+            lga,
+            fromSelf,
+            parentId: extra?.parentId,
+            rootId: extra?.rootId,
+            messageId: extra?.messageId,
+            username: extra?.username,
+            message: extra?.message
+        });
     }
 
     function updateBadges() {
@@ -72,10 +146,19 @@ window.Mybits = (function () {
             if (!el) return;
             el.textContent = show ? countLabel : '';
             el.classList.toggle('hidden', !show);
+            el.setAttribute('aria-label', show ? `${unseenCount} new ${unseenCount === 1 ? 'reply' : 'replies'}` : '');
         });
 
         $('mybits-tab-btn')?.classList.toggle('has-activity', show);
         $('mybits-sidebar-heading')?.classList.toggle('has-activity', show);
+
+        const hint = $('mybits-activity-hint');
+        if (hint) {
+            hint.textContent = show
+                ? `${unseenCount} new ${unseenCount === 1 ? 'reply' : 'replies'} in your locations`
+                : '';
+            hint.classList.toggle('hidden', !show);
+        }
 
         const tabBtn = $('mybits-tab-btn');
         if (tabBtn) {
@@ -117,10 +200,22 @@ window.Mybits = (function () {
         }
     }
 
+    function onSidebarHeadingClick() {
+        if (!isMobile()) clearBadge();
+    }
+
+    function requestNotificationPermission() {
+        if (!('Notification' in window)) return;
+        if (Notification.permission === 'default') {
+            Notification.requestPermission().catch(() => {});
+        }
+    }
+
     function bindEvents() {
         const tabBtn = $('mybits-tab-btn');
         const overlay = $('profile-overlay');
         const interactions = $('profile-interactions');
+        const heading = $('mybits-sidebar-heading');
 
         if (tabBtn && !tabBtn.dataset.bound) {
             tabBtn.dataset.bound = '1';
@@ -132,6 +227,11 @@ window.Mybits = (function () {
             overlay.addEventListener('click', closePanel);
         }
 
+        if (heading && !heading.dataset.bound) {
+            heading.dataset.bound = '1';
+            heading.addEventListener('click', onSidebarHeadingClick);
+        }
+
         if (interactions && !interactions.dataset.mybitsBound) {
             interactions.dataset.mybitsBound = '1';
             interactions.addEventListener('click', onInteractionsClick);
@@ -141,6 +241,12 @@ window.Mybits = (function () {
             mediaQueryBound = true;
             MOBILE_MQ.addEventListener('change', updateBadges);
         }
+
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible' && document.body.classList.contains('authenticated')) {
+                syncWatchRooms();
+            }
+        });
     }
 
     function init() {
@@ -152,13 +258,20 @@ window.Mybits = (function () {
     function teardown() {
         closePanel();
         interactedLocations.clear();
+        interactedMessageIds.clear();
+        interactedLocationList = [];
         unseenCount = 0;
         saveCount();
         updateBadges();
+        const socket = window.activeSocket;
+        if (socket?.connected) {
+            socket.emit('mybits:watch', { locations: [] });
+        }
     }
 
     function onAuthenticated() {
         init();
+        requestNotificationPermission();
         updateBadges();
     }
 
@@ -174,8 +287,12 @@ window.Mybits = (function () {
         openPanel,
         closePanel,
         handleActivity,
+        handleIncomingMessage,
         setInteractedLocations,
+        setInteractedFromProfile,
+        syncWatchRooms,
         clearBadge,
-        updateBadges
+        updateBadges,
+        locKey
     };
 })();

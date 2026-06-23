@@ -77,6 +77,9 @@ function startAuthenticatedChat() {
         if (loc.state && loc.lga) {
             socket.emit('location:join', { state: loc.state, lga: loc.lga });
         }
+        if (window.Mybits) {
+            Mybits.syncWatchRooms();
+        }
 
         const box = document.getElementById('chat-messages');
         const hasMessages = box?.querySelector('.message-item, .reply-message');
@@ -127,11 +130,6 @@ function startAuthenticatedChat() {
 
     // Mobile profile panel is shown inline when logged in (see CSS body.authenticated)
 
-    // Request notification permission
-    if ('Notification' in window && Notification.permission === 'default') {
-        Notification.requestPermission();
-    }
-
     // Strip HTML formatting on paste for main message input
     if (messageInput) {
         messageInput.addEventListener('paste', (e) => {
@@ -142,9 +140,6 @@ function startAuthenticatedChat() {
             document.execCommand('insertHTML', false, html);
         });
     }
-
-    // Store user's interacted message IDs for notification checking
-    let userInteractedMessageIds = new Set();
 
     async function fetchProfile() {
         const currentToken = localStorage.getItem('token');
@@ -262,8 +257,7 @@ function startAuthenticatedChat() {
             profileInteractions.innerHTML = '';
             if (!data.interactions || data.interactions.length === 0) {
                 profileInteractions.textContent = 'No interactions yet.';
-                userInteractedMessageIds.clear();
-                if (window.Mybits) Mybits.setInteractedLocations([]);
+                if (window.Mybits) Mybits.setInteractedFromProfile([]);
                 return;
             }
             
@@ -272,19 +266,12 @@ function startAuthenticatedChat() {
             
             if (mainMessageInteractions.length === 0) {
                 profileInteractions.textContent = 'No interactions yet.';
-                userInteractedMessageIds.clear();
-                if (window.Mybits) Mybits.setInteractedLocations([]);
+                if (window.Mybits) Mybits.setInteractedFromProfile(data.interactions);
                 return;
             }
             
-            // Update interacted message IDs for notification checking
-            userInteractedMessageIds.clear();
-            mainMessageInteractions.forEach(item => {
-                userInteractedMessageIds.add(normalizeId(item.message_id));
-            });
-
             if (window.Mybits) {
-                Mybits.setInteractedLocations(mainMessageInteractions);
+                Mybits.setInteractedFromProfile(data.interactions);
             }
             
             // Group interactions by state first, then by LGA
@@ -570,36 +557,49 @@ function startAuthenticatedChat() {
         }
     });
 
+    function messageMatchesCurrentView(data) {
+        const loc = LocationFeed.getSelectedLocation();
+        const state = (data.state || '').trim();
+        const lga = (data.lga || '').trim();
+        const key = window.Mybits ? Mybits.locKey(state, lga) : `${state}_${lga}`.toLowerCase();
+        const viewKey = window.Mybits
+            ? Mybits.locKey(loc.state, loc.lga)
+            : `${loc.state}_${loc.lga}`.toLowerCase();
+        return key === viewKey;
+    }
+
     // Listen for incoming messages
     socket.on('chat message', (data) => {
         LocationFeed.cancelConnectReload();
 
         const msgId = normalizeId(data.id);
         const parentId = normalizeId(data.parentId);
+        const rootId = normalizeId(data.rootId);
+
+        if (window.Mybits) {
+            Mybits.handleIncomingMessage({
+                state: data.state,
+                lga: data.lga,
+                fromSelf: data.username === currentUsername,
+                parentId,
+                rootId,
+                messageId: msgId,
+                username: data.username,
+                message: data.message
+            });
+        }
+
+        if (!messageMatchesCurrentView(data)) {
+            return;
+        }
 
         if (msgId != null && document.querySelector(`.message-item[data-id="${msgId}"], .reply-message[data-id="${msgId}"]`)) {
             return;
         }
 
-        if (window.Mybits && data.state && data.lga) {
-            Mybits.handleActivity(data.state, data.lga, data.username === currentUsername);
-        }
-
         // If this is user's own message, automatically track it
         if (data.username === currentUsername && !parentId) {
             recordInteraction(data.id, 'sent');
-        }
-        
-        // Check if this is a reply to user's interacted message
-        if (parentId != null && userInteractedMessageIds.has(parentId) && data.username !== currentUsername) {
-            // Show notification
-            if ('Notification' in window && Notification.permission === 'granted') {
-                new Notification('New Reply', {
-                    body: `${data.username} replied to your message`,
-                    icon: '/icon.png', // Add icon if you have one
-                    tag: `reply-${data.id}`
-                });
-            }
         }
         
         // On reply page, only show messages related to the conversation

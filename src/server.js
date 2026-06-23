@@ -1642,6 +1642,21 @@ io.use((socket, next) => {
 // Socket.io connection with user tracking to prevent multiple connections
 const userSockets = new Map(); // Track active sockets per username
 
+async function getRootMessageId(parentId) {
+  if (!parentId) return null;
+  let current = parentId;
+  for (let depth = 0; depth < 50; depth += 1) {
+    const rows = await dbAll(
+      'SELECT id, parent_id FROM messages WHERE id = ? LIMIT 1',
+      [current]
+    );
+    if (!rows || rows.length === 0) return current;
+    if (!rows[0].parent_id) return rows[0].id;
+    current = rows[0].parent_id;
+  }
+  return current;
+}
+
 io.on('connection', (socket) => {
   try {
     const isGuest = !socket.user || !socket.user.username;
@@ -1707,6 +1722,35 @@ io.on('connection', (socket) => {
         console.log('User', username, 'joined view room:', socket.locationRoom);
       } catch (err) {
         console.error('Authenticated location join failed:', err.message);
+      }
+    });
+
+    socket.on('mybits:watch', ({ locations }) => {
+      try {
+        if (!socket.watchedRooms) socket.watchedRooms = new Set();
+        const nextRooms = new Set();
+
+        (locations || []).forEach(({ state, lga }) => {
+          const normalizedState = (state || '').trim();
+          const normalizedLga = (lga || '').trim();
+          if (!normalizedState || !normalizedLga) return;
+          const room = `${normalizedState}_${normalizedLga}`;
+          nextRooms.add(room);
+          if (!socket.watchedRooms.has(room)) {
+            socket.join(room);
+          }
+        });
+
+        socket.watchedRooms.forEach((room) => {
+          if (!nextRooms.has(room) && room !== socket.locationRoom) {
+            socket.leave(room);
+          }
+        });
+
+        socket.watchedRooms = nextRooms;
+        console.log('User', username, 'watching mybits rooms:', [...nextRooms]);
+      } catch (err) {
+        console.error('mybits:watch failed:', err.message);
       }
     });
 
@@ -1806,6 +1850,11 @@ io.on('connection', (socket) => {
       const messageId = result.lastID;
       console.log('Message saved with ID:', messageId, parentId ? '(Reply)' : '(Main)');
       console.log('Broadcasting to room:', messageRoom, 'Users in room:', io.sockets.adapter.rooms.get(messageRoom)?.size || 0);
+
+      let rootId = null;
+      if (parentId) {
+        rootId = await getRootMessageId(parentId);
+      }
       
       // Record interaction for replies
       if (parentId) {
@@ -1827,6 +1876,7 @@ io.on('connection', (socket) => {
         attachmentUrl,
         attachmentType,
         parentId,
+        rootId,
         state,
         lga,
         timestamp: now.toISOString()
