@@ -84,6 +84,7 @@ window.LocationFeed = (function () {
 
             renderMessages(data.messages || []);
             joinSocketRoom(state, lga);
+            if (window.Share) Share.onFeedRendered();
             if (onLocationChange) onLocationChange(state, lga);
         } catch (err) {
             console.error('Location feed load failed:', err);
@@ -106,6 +107,7 @@ window.LocationFeed = (function () {
             const data = await res.json().catch(() => ({}));
             if (!res.ok) throw new Error(data.message || 'Search failed');
             renderMessages(data.messages || []);
+            if (window.Share) Share.onFeedRendered();
         } catch (err) {
             console.error('Location search failed:', err);
             showFeedError(err.message || 'Search failed.');

@@ -448,13 +448,8 @@ function startAuthenticatedChat() {
             await LocationFeed.loadFeed(messageState, messageLga);
 
             setTimeout(() => {
-                const messageElement = document.querySelector(`[data-id="${messageId}"]`);
-                if (messageElement) {
-                    messageElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    messageElement.classList.add('highlight-flash');
-                    setTimeout(() => {
-                        messageElement.classList.remove('highlight-flash');
-                    }, 3000);
+                if (window.Share) {
+                    Share.highlightMessage(messageId);
                 }
             }, 300);
         });
@@ -620,6 +615,12 @@ function startAuthenticatedChat() {
         const messageElement = document.createElement('div');
         messageElement.classList.add('message-item');
         messageElement.dataset.id = msgId;
+        const loc = LocationFeed.getSelectedLocation();
+        const msgState = data.state || loc.state || '';
+        const msgLga = data.lga || loc.lga || '';
+        if (window.Share) {
+            Share.applyMessageDatasets(messageElement, { state: msgState, lga: msgLga, id: msgId }, msgId);
+        }
         const own = data.username === currentUsername;
         const actionsHtml = `<button class="reply-btn" data-username="${esc(data.username)}" title="Reply">\uD83D\uDCAC</button> <button class="share-btn" data-message="${esc(data.message)}" data-id="${esc(String(data.id))}" title="Share">\u2197</button>${own ? ` <button class="delete-btn" data-id="${esc(String(data.id))}" title="Delete">🗑️</button>` : ''}`;
         messageElement.innerHTML = `
@@ -642,6 +643,15 @@ function startAuthenticatedChat() {
                     const replyItem = document.createElement('div');
                     replyItem.classList.add('reply-message');
                     replyItem.dataset.id = msgId;
+                    const rootEl = Share?.getRootMessageElement(parentElement);
+                    const rootId = rootEl?.dataset.id || parentId;
+                    if (window.Share) {
+                        Share.applyMessageDatasets(
+                            replyItem,
+                            { state: msgState, lga: msgLga, id: msgId },
+                            rootId
+                        );
+                    }
                     const cleanMessage = data.message.replace(/^@\w+\s*/, '');
                     const ownReply = data.username === currentUsername;
                     const replyActions = `<button class="reply-btn" data-username="${esc(data.username)}" title="Reply">\uD83D\uDCAC</button> <button class="share-btn" data-message="${esc(cleanMessage)}" data-id="${esc(String(data.id))}" title="Share">\u2197</button>${ownReply ? ` <button class="delete-btn" data-id="${esc(String(data.id))}" title="Delete">🗑️</button>` : ''}`;
@@ -773,17 +783,6 @@ function startAuthenticatedChat() {
                     }
                 });
             }
-        }
-        
-        const shareBtn = event.target.closest('.share-btn');
-        if (shareBtn) {
-            const message = shareBtn.dataset.message;
-            const messageItem = shareBtn.closest('.message-item, .reply-message');
-            navigator.clipboard.writeText(message).then(() => alert('Message copied to clipboard!'));
-            if (messageItem && messageItem.dataset.id) {
-                recordInteraction(messageItem.dataset.id, 'share');
-            }
-            return;
         }
         
         const deleteBtn = event.target.closest('.delete-btn');

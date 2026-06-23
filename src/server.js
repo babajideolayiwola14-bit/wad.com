@@ -939,6 +939,47 @@ app.get('/feed/public', async (req, res) => {
   }
 });
 
+// Public share metadata — resolve message location for deep links
+app.get('/share/:id', async (req, res) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    if (!id || Number.isNaN(id)) {
+      return res.status(400).json({ message: 'Invalid message id' });
+    }
+
+    let rows = await dbAll(
+      'SELECT id, username, state, lga, message, parent_id FROM messages WHERE id = ? LIMIT 1',
+      [id]
+    );
+    if (!rows || rows.length === 0) {
+      return res.status(404).json({ message: 'Message not found' });
+    }
+
+    let current = rows[0];
+    let depth = 0;
+    while (current.parent_id && depth < 50) {
+      const parents = await dbAll(
+        'SELECT id, username, state, lga, message, parent_id FROM messages WHERE id = ? LIMIT 1',
+        [current.parent_id]
+      );
+      if (!parents || parents.length === 0) break;
+      current = parents[0];
+      depth += 1;
+    }
+
+    res.json({
+      messageId: current.id,
+      state: current.state,
+      lga: current.lga,
+      username: current.username,
+      preview: String(current.message || '').slice(0, 200)
+    });
+  } catch (err) {
+    console.error('Failed to resolve share link:', err);
+    res.status(500).json({ message: 'Failed to resolve share link' });
+  }
+});
+
 // Get location-based feed
 app.get('/feed', verifyHttpToken, async (req, res) => {
   try {

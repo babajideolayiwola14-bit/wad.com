@@ -49,7 +49,7 @@ window.Guest = (function () {
         const messages = document.getElementById('chat-messages');
         bindOnce(messages, 'click', (e) => {
             if (Session.isAuthenticated()) return;
-            if (e.target.closest('.guest-action, .reply-btn, .share-btn, .delete-btn')) {
+            if (e.target.closest('.guest-action, .reply-btn, .delete-btn')) {
                 e.preventDefault();
                 promptLogin('Sign in to interact with messages.');
             }

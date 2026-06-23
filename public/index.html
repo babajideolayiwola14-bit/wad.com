@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>mybit</title>
-    <link rel="stylesheet" href="css/style.css?v=33">
+    <link rel="stylesheet" href="css/style.css?v=34">
 </head>
 <body>
     <div class="chat-container" id="chat-container">
@@ -75,6 +75,25 @@
                     </div>
                 </div>
                 <button id="logout" type="button" class="hidden">Logout</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Share modal -->
+    <div id="share-modal" class="modal hidden" role="dialog" aria-labelledby="share-modal-title" aria-modal="true">
+        <div class="modal-content share-modal-content">
+            <div class="modal-header">
+                <h2 id="share-modal-title">Share message</h2>
+                <button type="button" id="close-share-modal" class="close-btn" aria-label="Close">&times;</button>
+            </div>
+            <div class="share-modal-body">
+                <p class="share-modal-preview"></p>
+                <div class="share-platforms">
+                    <button type="button" class="share-platform-btn share-platform-whatsapp" data-platform="whatsapp">WhatsApp</button>
+                    <button type="button" class="share-platform-btn share-platform-twitter" data-platform="twitter">X / Twitter</button>
+                    <button type="button" class="share-platform-btn share-platform-facebook" data-platform="facebook">Facebook</button>
+                </div>
+                <button type="button" id="share-copy-link" class="submit-btn share-copy-btn">Copy link</button>
             </div>
         </div>
     </div>
@@ -164,16 +183,17 @@
         </div>
     </div>
 
-    <script src="js/security.js?v=33"></script>
-    <script src="js/locations.js?v=33"></script>
-    <script src="js/session.js?v=33"></script>
-    <script src="js/feed-view.js?v=33"></script>
-    <script src="js/location-feed.js?v=33"></script>
-    <script src="js/modals.js?v=33"></script>
-    <script src="js/auth.js?v=33"></script>
-    <script src="js/guest.js?v=33"></script>
-    <script src="js/mybits.js?v=33"></script>
-    <script src="js/chat.js?v=33"></script>
-    <script src="js/app.js?v=33"></script>
+    <script src="js/security.js?v=34"></script>
+    <script src="js/locations.js?v=34"></script>
+    <script src="js/session.js?v=34"></script>
+    <script src="js/feed-view.js?v=34"></script>
+    <script src="js/location-feed.js?v=34"></script>
+    <script src="js/modals.js?v=34"></script>
+    <script src="js/auth.js?v=34"></script>
+    <script src="js/guest.js?v=34"></script>
+    <script src="js/mybits.js?v=34"></script>
+    <script src="js/share.js?v=34"></script>
+    <script src="js/chat.js?v=34"></script>
+    <script src="js/app.js?v=34"></script>
 </body>
 </html>

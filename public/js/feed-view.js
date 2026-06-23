@@ -47,7 +47,7 @@ window.FeedView = (function () {
         const messageText = esc(msg.message);
         const id = esc(String(msg.id));
         if (readOnly) {
-            return `<button class="reply-btn guest-action" data-username="${username}" title="Log in to reply">💬</button>`;
+            return `<button class="reply-btn guest-action" data-username="${username}" title="Log in to reply">💬</button> <button class="share-btn" data-message="${messageText}" data-id="${id}" title="Share">↗</button>`;
         }
         const own = msg.username === currentUsername;
         return `<button class="reply-btn" data-username="${username}" title="Reply">💬</button> <button class="share-btn" data-message="${messageText}" data-id="${id}" title="Share">↗</button>${own ? ` <button class="delete-btn" data-id="${id}" title="Delete">🗑️</button>` : ''}`;
@@ -74,7 +74,11 @@ window.FeedView = (function () {
         topLevelMessages.forEach(msg => {
             const messageElement = document.createElement('div');
             messageElement.classList.add('message-item');
-            messageElement.dataset.id = normalizeMessageId(msg.id);
+            const msgId = normalizeMessageId(msg.id);
+            messageElement.dataset.id = msgId;
+            if (window.Share) {
+                Share.applyMessageDatasets(messageElement, msg, msgId);
+            }
             const actionsHtml = buildActionsHtml(msg, currentUsername, readOnly);
             messageElement.innerHTML = `
                 <div style="display:flex;align-items:center;width:100%;gap:8px;">
@@ -95,7 +99,7 @@ window.FeedView = (function () {
             replyMap[pid].push(msg);
         });
 
-        function renderRepliesRecursive(parentId, parentElement) {
+        function renderRepliesRecursive(parentId, parentElement, rootId) {
             const pid = normalizeMessageId(parentId);
             const replies = replyMap[pid];
             if (!replies || replies.length === 0) return;
@@ -103,10 +107,16 @@ window.FeedView = (function () {
             const repliesDiv = parentElement.querySelector(':scope > .replies');
             if (!repliesDiv) return;
 
+            const threadRootId = rootId != null ? rootId : pid;
+
             replies.forEach(msg => {
                 const replyItem = document.createElement('div');
                 replyItem.classList.add('reply-message');
-                replyItem.dataset.id = normalizeMessageId(msg.id);
+                const replyId = normalizeMessageId(msg.id);
+                replyItem.dataset.id = replyId;
+                if (window.Share) {
+                    Share.applyMessageDatasets(replyItem, msg, threadRootId);
+                }
                 const cleanMessage = msg.message.replace(/^@\w+\s*/, '');
                 const actionsHtml = buildActionsHtml({ ...msg, message: cleanMessage }, currentUsername, readOnly);
                 replyItem.innerHTML = `
@@ -118,13 +128,13 @@ window.FeedView = (function () {
                     <div class="replies" style="display:none"></div>
                 `;
                 repliesDiv.appendChild(replyItem);
-                renderRepliesRecursive(normalizeMessageId(msg.id), replyItem);
+                renderRepliesRecursive(normalizeMessageId(msg.id), replyItem, threadRootId);
             });
         }
 
         topLevelMessages.forEach(msg => {
             const item = container.querySelector(`.message-item[data-id="${normalizeMessageId(msg.id)}"]`);
-            if (item) renderRepliesRecursive(normalizeMessageId(msg.id), item);
+            if (item) renderRepliesRecursive(normalizeMessageId(msg.id), item, normalizeMessageId(msg.id));
         });
 
         finalizeThreads(container, readOnly);

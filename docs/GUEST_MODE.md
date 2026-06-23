@@ -12,7 +12,7 @@ Visitors can browse the chat **without logging in**. Writing (post, reply, attac
 | Search messages | Enter in search box (`GET /search/public`) | Search button + Enter |
 | Live updates | Yes (socket `guest:join`) | Yes (socket `location:join`) |
 | Type / send / attach | No → opens login modal | Yes (posts to selected dropdown location) |
-| Reply / share / delete | No → opens login modal | Yes |
+| Reply / share / delete | Share yes; reply & delete need login | Yes |
 | Profile / mybit | Hidden for guests | Sidebar shortcuts to past locations |
 
 ## Frontend modules

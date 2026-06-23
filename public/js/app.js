@@ -53,9 +53,14 @@ window.App = (function () {
 
     async function bootstrap() {
         Modals.init();
+        if (window.Share) Share.init();
         Auth.bindForms();
         Mybits.init();
         showChatShell();
+
+        if (window.Share) {
+            await Share.resolvePendingDeepLink();
+        }
 
         const token = Session.getToken();
         if (token && (await Session.resumeSession())) {
